@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tetris</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Overlay screens (position:fixed, toggled with .screen--active) -->
+  <div id="screen-start" class="screen screen--active">
+    <div class="screen__content">
+      <h1 class="screen__title">TETRIS</h1>
+      <p class="screen__subtitle">Press <kbd>Enter</kbd> to Start</p>
+      <div class="screen__controls">
+        <div class="controls-grid">
+          <span>Move</span><span>← →</span>
+          <span>Rotate CW</span><span>↑ / X</span>
+          <span>Rotate CCW</span><span>Z</span>
+          <span>Soft Drop</span><span>↓</span>
+          <span>Hard Drop</span><span>Space</span>
+          <span>Hold</span><span>C / Shift</span>
+          <span>Pause</span><span>Esc</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-pause" class="screen">
+    <div class="screen__content">
+      <h2 class="screen__title">PAUSED</h2>
+      <p class="screen__subtitle">Press <kbd>Esc</kbd> to Resume</p>
+    </div>
+  </div>
+
+  <div id="screen-gameover" class="screen">
+    <div class="screen__content">
+      <h2 class="screen__title">GAME OVER</h2>
+      <p class="screen__final-score">Score: <span id="final-score">0</span></p>
+      <p class="screen__high-score">Best: <span id="high-score-display">0</span></p>
+      <p class="screen__subtitle">Press <kbd>Enter</kbd> to Restart</p>
+    </div>
+  </div>
+
+  <!-- Main game layout -->
+  <main class="game-container">
+
+    <!-- Left panel: Hold + Stats -->
+    <aside class="panel panel--left">
+      <div class="panel__section">
+        <h3 class="panel__label">HOLD</h3>
+        <canvas id="canvas-hold" width="120" height="120"></canvas>
+      </div>
+      <div class="panel__section panel__section--stats">
+        <div class="stat">
+          <span class="stat__label">SCORE</span>
+          <span class="stat__value" id="hud-score">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat__label">LEVEL</span>
+          <span class="stat__value" id="hud-level">1</span>
+        </div>
+        <div class="stat">
+          <span class="stat__label">LINES</span>
+          <span class="stat__value" id="hud-lines">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat__label">BEST</span>
+          <span class="stat__value" id="hud-high-score">0</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center: Main board -->
+    <div class="board-wrapper">
+      <canvas id="canvas-board"></canvas>
+      <div id="action-text" class="action-text" aria-live="polite"></div>
+      <div id="level-up-text" class="level-up-text" aria-live="polite"></div>
+    </div>
+
+    <!-- Right panel: Next queue -->
+    <aside class="panel panel--right">
+      <div class="panel__section">
+        <h3 class="panel__label">NEXT</h3>
+        <canvas id="canvas-next" width="120" height="360"></canvas>
+      </div>
+    </aside>
+
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>

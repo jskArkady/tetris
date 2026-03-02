@@ -1,0 +1,310 @@
+/* ═══════════════════════════════════════════════════════════════
+   TETRIS — style.css
+   Architecture: CSS custom properties for theming, flexbox for
+   layout, no CSS animations on canvas content (JS handles those),
+   CSS transitions only for overlay fade-in/out.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Custom Properties (Theme) ───────────────────────────────── */
+:root {
+  --bg-primary:    #1a1a2e;
+  --bg-secondary:  #16213e;
+  --bg-board:      #0a0a1a;
+  --bg-panel:      #0f1729;
+  --text-primary:  #e0e0e0;
+  --text-accent:   #00d4ff;
+  --text-muted:    #6a7b8c;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --grid-line:     rgba(255, 255, 255, 0.04);
+  --screen-bg:     rgba(10, 10, 26, 0.92);
+
+  /* Board cell size — reduced on mobile via media query */
+  --cell-size: 30px;
+}
+
+/* ── Reset & Base ─────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── Overlay Screens ─────────────────────────────────────────── */
+/* Screens are fixed-position overlays; only .screen--active is shown */
+.screen {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--screen-bg);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  /* Fade transition when shown/hidden */
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.screen--active {
+  display: flex;
+  opacity: 1;
+}
+
+.screen__content {
+  text-align: center;
+  padding: 2rem 3rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  max-width: 400px;
+  width: 90%;
+}
+
+.screen__title {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: var(--text-accent);
+  text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+  margin-bottom: 0.5rem;
+}
+
+.screen__subtitle {
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+  font-size: 1rem;
+}
+
+.screen__final-score,
+.screen__high-score {
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.screen__final-score span,
+.screen__high-score span {
+  color: var(--text-accent);
+  font-weight: 700;
+}
+
+kbd {
+  background: var(--bg-board);
+  border: 1px solid var(--text-muted);
+  border-radius: 3px;
+  padding: 0.1em 0.4em;
+  font-size: 0.85em;
+  font-family: monospace;
+  color: var(--text-accent);
+}
+
+/* ── Controls legend ─────────────────────────────────────────── */
+.screen__controls {
+  margin-top: 1rem;
+}
+
+.controls-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.3rem 1rem;
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.controls-grid span:nth-child(even) {
+  color: var(--text-accent);
+  font-family: monospace;
+  text-align: right;
+}
+
+/* ── Game Layout ─────────────────────────────────────────────── */
+.game-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  position: relative;
+}
+
+/* ── Side Panels ─────────────────────────────────────────────── */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 130px;
+  flex-shrink: 0;
+}
+
+.panel__section {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.panel__label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.panel__section--stats {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+canvas#canvas-hold,
+canvas#canvas-next {
+  display: block;
+  /* Canvas dimensions set in JS to handle devicePixelRatio;
+     CSS width ensures correct layout sizing */
+  width: 110px;
+}
+
+canvas#canvas-next {
+  height: 330px;
+}
+
+/* ── Stat Display ────────────────────────────────────────────── */
+.stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat__label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.stat__value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-accent);
+  font-variant-numeric: tabular-nums;
+  min-width: 80px;
+}
+
+/* ── Board Wrapper ───────────────────────────────────────────── */
+.board-wrapper {
+  position: relative;
+  /* Width and height computed from CELL_SIZE × grid dimensions in JS.
+     CSS width here matches the canvas CSS width. */
+  flex-shrink: 0;
+}
+
+canvas#canvas-board {
+  display: block;
+  background: var(--bg-board);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  /* CSS width/height set by JS based on CELL_SIZE × grid */
+  width: calc(var(--cell-size) * 10);
+  height: calc(var(--cell-size) * 20);
+}
+
+/* ── Action / Level-Up Text Feedback ────────────────────────── */
+/* Positioned inside .board-wrapper, centered horizontally */
+.action-text,
+.level-up-text {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  /* JS sets opacity via class toggle for animation */
+  transition: opacity 0.15s ease;
+}
+
+.action-text {
+  top: 35%;
+  font-size: 1.1rem;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(255,255,255,0.8);
+}
+
+.level-up-text {
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.4rem;
+  color: var(--text-accent);
+  text-shadow: 0 0 16px rgba(0, 212, 255, 0.9);
+}
+
+/* Visible state (JS adds .is-visible) */
+.action-text.is-visible,
+.level-up-text.is-visible {
+  opacity: 1;
+}
+
+/* ── Responsive: narrow viewport ────────────────────────────── */
+@media (max-width: 600px) {
+  :root {
+    --cell-size: 22px;
+  }
+
+  body {
+    align-items: flex-start;
+    overflow-y: auto;
+    padding: 8px 4px;
+  }
+
+  .game-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* On mobile: left and right panels become top/bottom rows */
+  .panel--left,
+  .panel--right {
+    flex-direction: row;
+    width: calc(var(--cell-size) * 10);
+    justify-content: space-between;
+  }
+
+  .panel {
+    width: auto;
+  }
+
+  canvas#canvas-hold,
+  canvas#canvas-next {
+    width: 80px;
+  }
+
+  canvas#canvas-next {
+    height: 80px;
+  }
+
+  .screen__title {
+    font-size: 2rem;
+  }
+}
