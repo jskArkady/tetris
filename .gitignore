@@ -1,0 +1,9 @@
+# Agent reference files — not part of the project
+DESIGN.md
+*-DESIGN.md
+DONE.md
+tasks/
+docs/
+
+# Backups
+*.bak
