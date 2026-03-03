@@ -55,7 +55,21 @@
     [PIECE_L]: '#ef6c00',
   };
 
-  // SRS rotation states for each piece.
+  /**
+   * THEME: Load piece colors from CSS vars so future per-theme palettes are
+   * automatically picked up without touching JS. Falls back to hardcoded defaults
+   * if the CSS var is empty (e.g. in unit-test environments).
+   */
+  function loadPieceColors() {
+    PIECE_COLORS[PIECE_I] = getCssVar('--piece-i') || '#00bcd4';
+    PIECE_COLORS[PIECE_O] = getCssVar('--piece-o') || '#fdd835';
+    PIECE_COLORS[PIECE_T] = getCssVar('--piece-t') || '#9c27b0';
+    PIECE_COLORS[PIECE_S] = getCssVar('--piece-s') || '#4caf50';
+    PIECE_COLORS[PIECE_Z] = getCssVar('--piece-z') || '#f44336';
+    PIECE_COLORS[PIECE_J] = getCssVar('--piece-j') || '#1565c0';
+    PIECE_COLORS[PIECE_L] = getCssVar('--piece-l') || '#ef6c00';
+  }
+
   // Each state is an array of [row, col] pairs within a 4x4 bounding box.
   // States: 0=spawn, 1=R(CW), 2=180, 3=L(CCW)
   const TETROMINOES = {
@@ -213,6 +227,9 @@
       card.classList.toggle('theme-card--selected', isSelected);
       card.setAttribute('aria-pressed', String(isSelected));
     });
+
+    // THEME: reload piece colors from CSS vars after theme vars switch
+    loadPieceColors();
   }
 
   function initThemeSelector() {
@@ -816,11 +833,12 @@
     ctx.fillRect(x, y, s, s);
 
     // Subtle inner bevel for depth
-    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    // THEME: read bevel colors from CSS vars so they adapt to dark/bright theme
+    ctx.fillStyle = getCssVar('--cell-bevel-light');
     ctx.fillRect(x, y, s, 2);
     ctx.fillRect(x, y, 2, s);
 
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillStyle = getCssVar('--cell-bevel-shadow');
     ctx.fillRect(x + s - 2, y, 2, s);
     ctx.fillRect(x, y + s - 2, s, 2);
   }
@@ -862,10 +880,19 @@
   }
 
   function flashColor(timerMs) {
-    // Flashes from white toward transparent as the timer counts down
+    // THEME: use --text-accent base color so flash reads on both dark (#fff) and bright (#000) themes
+    const base  = getCssVar('--text-accent') || '#ffffff';
+    // Parse hex to RGB for alpha compositing
+    let r = 255, g = 255, b = 255;
+    const hex = base.replace('#', '');
+    if (hex.length === 6) {
+      r = parseInt(hex.slice(0,2), 16);
+      g = parseInt(hex.slice(2,4), 16);
+      b = parseInt(hex.slice(4,6), 16);
+    }
     const t     = timerMs / CLEAR_ANIM_DURATION;
     const alpha = (0.5 + 0.5 * t).toFixed(2);
-    return 'rgba(255,255,255,' + alpha + ')';
+    return `rgba(${r},${g},${b},${alpha})`;
   }
 
   function renderGhost() {
@@ -1068,6 +1095,9 @@
     // Restore last theme from localStorage and apply it
     const savedTheme = loadSavedTheme();
     applyTheme(savedTheme);
+
+    // THEME: seed piece colors from CSS vars on startup
+    loadPieceColors();
 
     // Wire up theme selector and game buttons
     initThemeSelector();

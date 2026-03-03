@@ -23,6 +23,10 @@
   --canvas-border:  #2a2a2a;
   --ghost-color:    rgba(255,255,255,0.15);
 
+  /* Cell bevel — canvas depth effect */
+  --cell-bevel-light:  rgba(255,255,255,0.25);
+  --cell-bevel-shadow: rgba(0,0,0,0.35);
+
   /* Piece colors */
   --piece-i: #00bcd4;
   --piece-o: #fdd835;
@@ -63,6 +67,10 @@
   --canvas-grid:    #e0e0e0;
   --canvas-border:  #cccccc;
   --ghost-color:    rgba(0,0,0,0.10);
+
+  /* Cell bevel — brighter bevel visible on light bg; softer shadow for bright theme */
+  --cell-bevel-light:  rgba(255,255,255,0.55);
+  --cell-bevel-shadow: rgba(0,0,0,0.18);
 
   /* Piece colors (same vivid palette) */
   --piece-i: #00bcd4;
