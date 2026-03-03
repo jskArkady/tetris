@@ -7,16 +7,16 @@
 
 /* ── Custom Properties (Theme) ───────────────────────────────── */
 :root {
-  --bg-primary:    #1a1a2e;
-  --bg-secondary:  #16213e;
-  --bg-board:      #0a0a1a;
-  --bg-panel:      #0f1729;
+  --bg-primary:    #080808;
+  --bg-secondary:  #0d0d0d;
+  --bg-board:      #0a0a0a;
+  --bg-panel:      #111111;
   --text-primary:  #e0e0e0;
   --text-accent:   #00d4ff;
   --text-muted:    #6a7b8c;
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --grid-line:     rgba(255, 255, 255, 0.04);
-  --screen-bg:     rgba(10, 10, 26, 0.92);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --grid-line:     rgba(255, 255, 255, 0.03);
+  --screen-bg:     rgba(5, 5, 5, 0.94);
 
   /* Board cell size — reduced on mobile via media query */
   --cell-size: 30px;
@@ -307,4 +307,55 @@ canvas#canvas-board {
   .screen__title {
     font-size: 2rem;
   }
+}
+
+/* ── Bright Theme ────────────────────────────────────────────── */
+/* Toggle via <body class="theme-bright"> or data-theme="bright" on :root */
+body.theme-bright {
+  --bg-primary:    #f5f5f5;
+  --bg-secondary:  #f0f0f0;
+  --bg-board:      #ffffff;
+  --bg-panel:      #eeeeee;
+  --text-primary:  #1a1a1a;
+  --text-accent:   #0077cc;
+  --text-muted:    #666666;
+  --border-subtle: rgba(0, 0, 0, 0.12);
+  --grid-line:     rgba(0, 0, 0, 0.06);
+  --screen-bg:     rgba(245, 245, 245, 0.94);
+}
+
+body.theme-bright canvas#canvas-board {
+  background: var(--bg-board);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+body.theme-bright kbd {
+  background: #e0e0e0;
+  border-color: #aaa;
+  color: #0077cc;
+}
+
+/* ── Theme Toggle Button ─────────────────────────────────────── */
+#theme-toggle {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  z-index: 200;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, border-color 0.2s;
+  line-height: 1;
+}
+
+#theme-toggle:hover {
+  border-color: var(--text-accent);
 }

@@ -1,6 +1,6 @@
 # Tetris
 
-Bloomberg-style dark theme Tetris — built with pure HTML, CSS, and Vanilla JavaScript.
+Dark theme Tetris — built with pure HTML, CSS, and Vanilla JavaScript.
 No libraries, no build tools. Open `index.html` in any modern browser and play.
 
 ## Features

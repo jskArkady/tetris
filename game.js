@@ -401,6 +401,17 @@
     const { type, rotation, x, y } = state.current;
     const cells = getCells(type, rotation, x, y);
 
+    // FIX [A]: detectTSpin() must run BEFORE writing cells to board.
+    // The T-spin corner check reads state.board; if we write first,
+    // the piece's own cells count as "occupied" corners → false detection.
+    const tSpinResult = detectTSpin();
+
+    // FIX [C]: After lockPiece() is triggered (e.g. via hard drop), reset
+    // all lock-delay state so the game loop cannot fire a second lockPiece().
+    state.lockTimer   = 0;
+    state.lockResets  = 0;
+    state.isOnSurface = false;
+
     let allAboveVisible = true;
     for (const [r, c] of cells) {
       if (r >= 0 && r < ROWS) {
@@ -416,10 +427,13 @@
       return;
     }
 
-    const tSpinResult = detectTSpin();
-
     const fullRows = [];
-    for (let r = 0; r < ROWS; r++) {
+    // FIX [B]: Only scan visible rows (2..ROWS-1). Hidden rows (0-1) are never
+    // shown; clearing them would collapse the board incorrectly and hidden-row
+    // fills could register as "full" due to partial piece placement.
+    for (let r = 2; r < ROWS; r++) {
+      // FIX [E]: board is initialised with buildEmptyBoard() → fill(0), so
+      // cell values are always numeric (type ids ≥ 1) or 0. `!== 0` is correct.
       if (state.board[r].every(cell => cell !== 0)) fullRows.push(r);
     }
 
@@ -709,6 +723,9 @@
       state.clearAnimTimer -= dt;
       if (state.clearAnimTimer <= 0) {
         collapseRows(state.clearingRows);
+        // FIX [D]: clearingRows is emptied BEFORE spawnNext(). If the spawned
+        // piece triggers an immediate lock-out, lockPiece() runs with an empty
+        // clearingRows — no double-clear or stale-row risk.
         state.clearingRows   = [];
         state.clearAnimTimer = 0;
         spawnNext();
@@ -775,7 +792,7 @@
     const W   = COLS         * CELL_SIZE;
     const H   = VISIBLE_ROWS * CELL_SIZE;
 
-    ctx.fillStyle = '#0a0a1a';
+    ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, W, H);
 
     // Grid lines
