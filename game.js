@@ -44,26 +44,15 @@
   const PIECE_J = 6;
   const PIECE_L = 7;
 
-  // Tetris Guideline colours per piece type
+  // Tetris Guideline colours per piece type — vivid, readable on both themes
   const PIECE_COLORS = {
-    [PIECE_I]: '#00F0F0',
-    [PIECE_O]: '#F0F000',
-    [PIECE_T]: '#A000F0',
-    [PIECE_S]: '#00F000',
-    [PIECE_Z]: '#F00000',
-    [PIECE_J]: '#0000F0',
-    [PIECE_L]: '#F0A000',
-  };
-
-  // Dimmed version of each colour for ghost piece rendering
-  const GHOST_COLORS = {
-    [PIECE_I]: 'rgba(0,240,240,0.22)',
-    [PIECE_O]: 'rgba(240,240,0,0.22)',
-    [PIECE_T]: 'rgba(160,0,240,0.22)',
-    [PIECE_S]: 'rgba(0,240,0,0.22)',
-    [PIECE_Z]: 'rgba(240,0,0,0.22)',
-    [PIECE_J]: 'rgba(0,0,240,0.22)',
-    [PIECE_L]: 'rgba(240,160,0,0.22)',
+    [PIECE_I]: '#00bcd4',
+    [PIECE_O]: '#fdd835',
+    [PIECE_T]: '#9c27b0',
+    [PIECE_S]: '#4caf50',
+    [PIECE_Z]: '#f44336',
+    [PIECE_J]: '#1565c0',
+    [PIECE_L]: '#ef6c00',
   };
 
   // SRS rotation states for each piece.
@@ -155,6 +144,8 @@
   // Gravity ms-per-drop indexed by level (1-based), capped at index 14 for 15+
   const LEVEL_SPEEDS = [1000,793,618,473,355,262,190,135,94,64,43,28,18,11,7];
 
+  const THEME_STORAGE_KEY = 'tetris-theme';
+
   // ═══════════════════════════════════════════════════════════════
   // SECTION 2: DOM REFERENCES
   // ═══════════════════════════════════════════════════════════════
@@ -177,6 +168,10 @@
       screenGameover:   document.getElementById('screen-gameover'),
       finalScore:       document.getElementById('final-score'),
       highScoreDisplay: document.getElementById('high-score-display'),
+      btnStart:         document.getElementById('btn-start'),
+      btnPlayAgain:     document.getElementById('btn-play-again'),
+      btnChangeTheme:   document.getElementById('btn-change-theme'),
+      themeCards:       document.querySelectorAll('.theme-card'),
     };
     dom.boardCtx = dom.boardCanvas.getContext('2d');
     dom.holdCtx  = dom.holdCanvas.getContext('2d');
@@ -184,7 +179,64 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SECTION 3: GAME STATE
+  // SECTION 3: THEME MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Read a CSS custom property from the document root.
+   * All canvas draw calls use this so theme changes are reflected immediately.
+   */
+  function getCssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  function loadSavedTheme() {
+    try { return localStorage.getItem(THEME_STORAGE_KEY) || 'dark'; }
+    catch (_) { return 'dark'; }
+  }
+
+  function saveTheme(theme) {
+    try { localStorage.setItem(THEME_STORAGE_KEY, theme); }
+    catch (_) { /* storage unavailable */ }
+  }
+
+  /**
+   * Apply theme to body and update theme card selected states.
+   * Does NOT start or stop the game — pure visual application.
+   */
+  function applyTheme(theme) {
+    document.body.dataset.theme = theme;
+    saveTheme(theme);
+
+    dom.themeCards.forEach(card => {
+      const isSelected = card.dataset.themeValue === theme;
+      card.classList.toggle('theme-card--selected', isSelected);
+      card.setAttribute('aria-pressed', String(isSelected));
+    });
+  }
+
+  function initThemeSelector() {
+    dom.themeCards.forEach(card => {
+      card.addEventListener('click', () => {
+        const theme = card.dataset.themeValue;
+        applyTheme(theme);
+        // Sync game state theme even before game starts
+        state.theme = theme;
+      });
+    });
+
+    dom.btnStart.addEventListener('click', () => startGame());
+
+    dom.btnPlayAgain.addEventListener('click', () => startGame());
+
+    dom.btnChangeTheme.addEventListener('click', () => {
+      showScreen('screen-start');
+      state.phase = 'start';
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // SECTION 4: GAME STATE
   // ═══════════════════════════════════════════════════════════════
 
   let state = {};
@@ -223,6 +275,8 @@
       lastKickIndex:   0,
       actionTextTimer: 0,
       levelUpTimer:    0,
+      // Theme is read from body at render time; stored here for reference
+      theme: document.body.dataset.theme || 'dark',
     };
 
     fillNextQueue();
@@ -230,7 +284,7 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SECTION 4: 7-BAG RANDOMIZER
+  // SECTION 5: 7-BAG RANDOMIZER
   // ═══════════════════════════════════════════════════════════════
 
   function shuffledBag() {
@@ -255,7 +309,7 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SECTION 5: COLLISION DETECTION
+  // SECTION 6: COLLISION DETECTION
   // ═══════════════════════════════════════════════════════════════
 
   function getCells(type, rotation, x, y) {
@@ -273,7 +327,7 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SECTION 6: SPAWNING & GHOST
+  // SECTION 7: SPAWNING & GHOST
   // ═══════════════════════════════════════════════════════════════
 
   function spawnPiece(type) {
@@ -306,7 +360,7 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SECTION 7: MOVEMENT
+  // SECTION 8: MOVEMENT
   // ═══════════════════════════════════════════════════════════════
 
   function movePiece(dx, dy) {
@@ -378,7 +432,7 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SECTION 8: HOLD
+  // SECTION 9: HOLD
   // ═══════════════════════════════════════════════════════════════
 
   function holdPiece() {
@@ -394,7 +448,7 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SECTION 9: LOCKING & LINE CLEARS
+  // SECTION 10: LOCKING & LINE CLEARS
   // ═══════════════════════════════════════════════════════════════
 
   function lockPiece() {
@@ -402,12 +456,9 @@
     const cells = getCells(type, rotation, x, y);
 
     // FIX [A]: detectTSpin() must run BEFORE writing cells to board.
-    // The T-spin corner check reads state.board; if we write first,
-    // the piece's own cells count as "occupied" corners → false detection.
     const tSpinResult = detectTSpin();
 
-    // FIX [C]: After lockPiece() is triggered (e.g. via hard drop), reset
-    // all lock-delay state so the game loop cannot fire a second lockPiece().
+    // FIX [C]: Reset all lock-delay state so the game loop cannot fire a second lockPiece().
     state.lockTimer   = 0;
     state.lockResets  = 0;
     state.isOnSurface = false;
@@ -416,7 +467,6 @@
     for (const [r, c] of cells) {
       if (r >= 0 && r < ROWS) {
         state.board[r][c] = type;
-        // Rows 0-1 are hidden; row 2+ is visible area
         if (r >= 2) allAboveVisible = false;
       }
     }
@@ -428,12 +478,8 @@
     }
 
     const fullRows = [];
-    // FIX [B]: Only scan visible rows (2..ROWS-1). Hidden rows (0-1) are never
-    // shown; clearing them would collapse the board incorrectly and hidden-row
-    // fills could register as "full" due to partial piece placement.
+    // FIX [B]: Only scan visible rows (2..ROWS-1).
     for (let r = 2; r < ROWS; r++) {
-      // FIX [E]: board is initialised with buildEmptyBoard() → fill(0), so
-      // cell values are always numeric (type ids ≥ 1) or 0. `!== 0` is correct.
       if (state.board[r].every(cell => cell !== 0)) fullRows.push(r);
     }
 
@@ -462,17 +508,13 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SECTION 10: T-SPIN DETECTION (3-corner rule)
-  // Checks 4 corners of T's 3x3 bounding box. If 3+ are filled,
-  // it's a T-spin. If both "front" corners are filled, it's full;
-  // otherwise mini (only if a wall-kick was used).
+  // SECTION 11: T-SPIN DETECTION (3-corner rule)
   // ═══════════════════════════════════════════════════════════════
 
   function detectTSpin() {
     const { type, rotation, x, y } = state.current;
     if (type !== PIECE_T || !state.lastWasRotation) return null;
 
-    // 4 corners of the T's 3x3 bounding box (local [0..2][0..2])
     const corners = [
       [y,   x  ],  // 0: top-left
       [y,   x+2],  // 1: top-right
@@ -487,21 +529,18 @@
     const filledCount = occupied.filter(Boolean).length;
     if (filledCount < 3) return null;
 
-    // Front corners depend on which way the T's bump faces
     const frontIndices = { 0:[0,1], 1:[1,3], 2:[2,3], 3:[0,2] }[rotation];
     const frontFilled  = frontIndices.filter(i => occupied[i]).length;
 
     if (frontFilled === 2) return { isTSpin: true, isMini: false };
 
-    // Mini: only possible when a kick was used (lastKickIndex > 0)
     if (state.lastKickIndex > 0) return { isTSpin: true, isMini: true };
 
-    // 3+ corners filled but front corners not both filled and no kick — not a T-spin
     return null;
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SECTION 11: SCORING
+  // SECTION 12: SCORING
   // ═══════════════════════════════════════════════════════════════
 
   function scoreForClear(linesCleared, tSpinResult) {
@@ -543,7 +582,6 @@
 
     state.score += baseScore + comboScore;
 
-    // Build notification display text
     const notifParts = [];
     if (actionLabel)        notifParts.push(actionLabel);
     if (b2bBonus)           notifParts.push('BACK-TO-BACK!');
@@ -574,7 +612,7 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SECTION 12: HIGH SCORE (localStorage)
+  // SECTION 13: HIGH SCORE (localStorage)
   // ═══════════════════════════════════════════════════════════════
 
   function loadHighScore() {
@@ -591,7 +629,7 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SECTION 13: INPUT HANDLING
+  // SECTION 14: INPUT HANDLING
   // ═══════════════════════════════════════════════════════════════
 
   const keys = {};
@@ -702,7 +740,7 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SECTION 14: UPDATE (game loop logic)
+  // SECTION 15: UPDATE (game loop logic)
   // ═══════════════════════════════════════════════════════════════
 
   function update(dt) {
@@ -723,9 +761,7 @@
       state.clearAnimTimer -= dt;
       if (state.clearAnimTimer <= 0) {
         collapseRows(state.clearingRows);
-        // FIX [D]: clearingRows is emptied BEFORE spawnNext(). If the spawned
-        // piece triggers an immediate lock-out, lockPiece() runs with an empty
-        // clearingRows — no double-clear or stale-row risk.
+        // FIX [D]: clearingRows is emptied BEFORE spawnNext().
         state.clearingRows   = [];
         state.clearAnimTimer = 0;
         spawnNext();
@@ -740,7 +776,7 @@
     state.gravityTimer += dt;
     while (state.gravityTimer >= dropInterval) {
       state.gravityTimer -= dropInterval;
-      movePiece(0, 1); // failure here means piece just hit surface
+      movePiece(0, 1);
     }
 
     // Lock delay
@@ -766,7 +802,9 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SECTION 15: RENDERING
+  // SECTION 16: RENDERING
+  // All canvas draw calls read CSS variables via getCssVar() so that
+  // the active theme is always reflected without any manual re-pass.
   // ═══════════════════════════════════════════════════════════════
 
   function drawCell(ctx, col, row, color, cellSize, offsetX, offsetY) {
@@ -792,11 +830,15 @@
     const W   = COLS         * CELL_SIZE;
     const H   = VISIBLE_ROWS * CELL_SIZE;
 
-    ctx.fillStyle = '#0a0a0a';
+    // Read theme colors fresh on every frame — ensures theme switch is instant
+    const bgColor   = getCssVar('--canvas-bg');
+    const gridColor = getCssVar('--canvas-grid');
+
+    ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, W, H);
 
     // Grid lines
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.strokeStyle = gridColor;
     ctx.lineWidth   = 1;
     for (let c = 0; c <= COLS; c++) {
       ctx.beginPath(); ctx.moveTo(c * CELL_SIZE, 0); ctx.lineTo(c * CELL_SIZE, H); ctx.stroke();
@@ -831,11 +873,14 @@
     const cells = getCells(type, rotation, x, state.ghostY);
     const ctx   = dom.boardCtx;
 
+    // Ghost color from CSS variable — switches automatically with theme
+    const ghostColor = getCssVar('--ghost-color');
+
     for (const [r, c] of cells) {
       const visRow = r - (ROWS - VISIBLE_ROWS);
       if (visRow < 0 || visRow >= VISIBLE_ROWS) continue;
 
-      ctx.fillStyle = GHOST_COLORS[type];
+      ctx.fillStyle = ghostColor;
       ctx.fillRect(c * CELL_SIZE, visRow * CELL_SIZE, CELL_SIZE, CELL_SIZE);
       ctx.strokeStyle = PIECE_COLORS[type];
       ctx.lineWidth   = 1;
@@ -880,7 +925,7 @@
     const W   = dom.holdCanvas.width;
     const H   = dom.holdCanvas.height;
 
-    ctx.fillStyle = '#111128';
+    ctx.fillStyle = getCssVar('--canvas-bg');
     ctx.fillRect(0, 0, W, H);
 
     if (state.hold.locked) ctx.globalAlpha = 0.45;
@@ -894,7 +939,7 @@
     const H      = dom.nextCanvas.height;
     const slotH  = Math.floor(H / 3);
 
-    ctx.fillStyle = '#111128';
+    ctx.fillStyle = getCssVar('--canvas-bg');
     ctx.fillRect(0, 0, W, H);
 
     for (let i = 0; i < 3; i++) {
@@ -936,7 +981,7 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SECTION 16: SCREEN / PHASE MANAGEMENT
+  // SECTION 17: SCREEN / PHASE MANAGEMENT
   // ═══════════════════════════════════════════════════════════════
 
   function showScreen(id) {
@@ -947,7 +992,10 @@
   }
 
   function startGame() {
+    // Lock in the currently selected theme before game starts
+    state.theme = document.body.dataset.theme || 'dark';
     initState();
+    state.theme = document.body.dataset.theme || 'dark'; // re-apply after initState reset
     showScreen(null);
     state.phase = 'playing';
     updateHud();
@@ -977,7 +1025,7 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SECTION 17: GAME LOOP
+  // SECTION 18: GAME LOOP
   // ═══════════════════════════════════════════════════════════════
 
   let lastTimestamp = null;
@@ -996,7 +1044,7 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SECTION 18: CANVAS SIZING
+  // SECTION 19: CANVAS SIZING
   // ═══════════════════════════════════════════════════════════════
 
   function resizeCanvases() {
@@ -1010,12 +1058,19 @@
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SECTION 19: INITIALIZATION
+  // SECTION 20: INITIALIZATION
   // ═══════════════════════════════════════════════════════════════
 
   function init() {
     cacheDom();
     resizeCanvases();
+
+    // Restore last theme from localStorage and apply it
+    const savedTheme = loadSavedTheme();
+    applyTheme(savedTheme);
+
+    // Wire up theme selector and game buttons
+    initThemeSelector();
 
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup',   onKeyUp);
@@ -1024,7 +1079,7 @@
     showScreen('screen-start');
     state.phase = 'start';
 
-    // Pre-initialise state so the background renders something on first frame
+    // Pre-initialise state so the background renders on first frame
     initState();
     state.phase = 'start';
 
