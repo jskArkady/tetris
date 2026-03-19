@@ -159,12 +159,43 @@
   const LEVEL_SPEEDS = [1000,793,618,473,355,262,190,135,94,64,43,28,18,11,7];
 
   const THEME_STORAGE_KEY = 'tetris-theme';
+  const STYLE_STORAGE_KEY = 'tetris-style-preset';
+  const DEFAULT_STYLE = 'fluent';
+
+  const MODE_LABELS = {
+    dark: 'Dark',
+    bright: 'Bright',
+  };
+
+  const STYLE_PRESETS = {
+    fluent: {
+      label: 'Fluent 2',
+      summary: 'Cool acrylic layers, luminous accents, productivity feel.',
+    },
+    material: {
+      label: 'Material 3',
+      summary: 'Rounded tonal surfaces and colorful, friendly hierarchy.',
+    },
+    cupertino: {
+      label: 'Cupertino',
+      summary: 'Soft translucency, quiet contrast, calm premium spacing.',
+    },
+    shadcn: {
+      label: 'shadcn/ui',
+      summary: 'Neutral tokens, crisp borders, minimal dashboard energy.',
+    },
+    atlassian: {
+      label: 'Atlassian',
+      summary: 'Clear productivity blue, structured surfaces, team-tool clarity.',
+    },
+  };
 
   // ═══════════════════════════════════════════════════════════════
   // SECTION 2: DOM REFERENCES
   // ═══════════════════════════════════════════════════════════════
 
   let dom = {};
+  let optionsReturnState = { screenId: 'screen-start', phase: 'start' };
 
   function cacheDom() {
     dom = {
@@ -178,14 +209,21 @@
       actionText:       document.getElementById('action-text'),
       levelUpText:      document.getElementById('level-up-text'),
       screenStart:      document.getElementById('screen-start'),
+      screenOptions:    document.getElementById('screen-options'),
       screenPause:      document.getElementById('screen-pause'),
       screenGameover:   document.getElementById('screen-gameover'),
       finalScore:       document.getElementById('final-score'),
       highScoreDisplay: document.getElementById('high-score-display'),
+      menuAppearanceSummary: document.getElementById('menu-appearance-summary'),
+      appearancePreviewName: document.getElementById('appearance-preview-name'),
+      appearancePreviewCopy: document.getElementById('appearance-preview-copy'),
       btnStart:         document.getElementById('btn-start'),
+      btnOpenOptions:   document.getElementById('btn-open-options'),
+      btnOptionsBack:   document.getElementById('btn-options-back'),
       btnPlayAgain:     document.getElementById('btn-play-again'),
-      btnChangeTheme:   document.getElementById('btn-change-theme'),
-      themeCards:       document.querySelectorAll('.theme-card'),
+      btnOpenOptionsGameover: document.getElementById('btn-open-options-gameover'),
+      modeButtons:      document.querySelectorAll('.mode-chip'),
+      presetCards:      document.querySelectorAll('.preset-card'),
     };
     dom.boardCtx = dom.boardCanvas.getContext('2d');
     dom.holdCtx  = dom.holdCanvas.getContext('2d');
@@ -196,59 +234,148 @@
   // SECTION 3: THEME MANAGEMENT
   // ═══════════════════════════════════════════════════════════════
 
+  function getThemeRoot() {
+    return document.documentElement;
+  }
+
+  function normalizeTheme(theme) {
+    return theme === 'bright' ? 'bright' : 'dark';
+  }
+
+  function normalizeStyle(style) {
+    return STYLE_PRESETS[style] ? style : DEFAULT_STYLE;
+  }
+
+  function getActiveTheme() {
+    return normalizeTheme(
+      getThemeRoot().dataset.theme
+      || (document.body && document.body.dataset.theme)
+      || 'dark'
+    );
+  }
+
+  function getActiveStyle() {
+    return normalizeStyle(
+      getThemeRoot().dataset.style
+      || (document.body && document.body.dataset.style)
+      || DEFAULT_STYLE
+    );
+  }
+
   /**
-   * Read a CSS custom property from the document root.
-   * All canvas draw calls use this so theme changes are reflected immediately.
+   * Read a CSS custom property from the active theme host.
+   * Canvas rendering depends on this, so the host must match where the
+   * theme tokens are actually defined.
    */
   function getCssVar(name) {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const rootValue = getComputedStyle(getThemeRoot()).getPropertyValue(name).trim();
+    if (rootValue) return rootValue;
+    if (document.body) {
+      return getComputedStyle(document.body).getPropertyValue(name).trim();
+    }
+    return '';
   }
 
   function loadSavedTheme() {
-    try { return localStorage.getItem(THEME_STORAGE_KEY) || 'dark'; }
+    try { return normalizeTheme(localStorage.getItem(THEME_STORAGE_KEY) || 'dark'); }
     catch (_) { return 'dark'; }
   }
 
   function saveTheme(theme) {
-    try { localStorage.setItem(THEME_STORAGE_KEY, theme); }
+    try { localStorage.setItem(THEME_STORAGE_KEY, normalizeTheme(theme)); }
     catch (_) { /* storage unavailable */ }
   }
 
-  /**
-   * Apply theme to body and update theme card selected states.
-   * Does NOT start or stop the game — pure visual application.
-   */
-  function applyTheme(theme) {
-    document.body.dataset.theme = theme;
-    saveTheme(theme);
+  function loadSavedStyle() {
+    try { return normalizeStyle(localStorage.getItem(STYLE_STORAGE_KEY) || DEFAULT_STYLE); }
+    catch (_) { return DEFAULT_STYLE; }
+  }
 
-    dom.themeCards.forEach(card => {
-      const isSelected = card.dataset.themeValue === theme;
-      card.classList.toggle('theme-card--selected', isSelected);
+  function saveStyle(style) {
+    try { localStorage.setItem(STYLE_STORAGE_KEY, normalizeStyle(style)); }
+    catch (_) { /* storage unavailable */ }
+  }
+
+  function updateAppearanceUi(theme, style) {
+    const preset = STYLE_PRESETS[style];
+    const modeLabel = MODE_LABELS[theme];
+
+    dom.modeButtons.forEach(button => {
+      const isSelected = button.dataset.modeValue === theme;
+      button.classList.toggle('is-selected', isSelected);
+      button.setAttribute('aria-pressed', String(isSelected));
+    });
+
+    dom.presetCards.forEach(card => {
+      const isSelected = card.dataset.styleValue === style;
+      card.classList.toggle('is-selected', isSelected);
       card.setAttribute('aria-pressed', String(isSelected));
     });
 
-    // THEME: reload piece colors from CSS vars after theme vars switch
-    loadPieceColors();
+    dom.menuAppearanceSummary.textContent = `${preset.label} · ${modeLabel}`;
+    dom.appearancePreviewName.textContent = `${preset.label} / ${modeLabel}`;
+    dom.appearancePreviewCopy.textContent = preset.summary;
   }
 
-  function initThemeSelector() {
-    dom.themeCards.forEach(card => {
+  /**
+   * Apply appearance tokens to the document root and keep body in sync for
+   * compatibility. This is a pure visual update and does not affect gameplay.
+   */
+  function applyAppearance(theme, style) {
+    const nextTheme = normalizeTheme(theme);
+    const nextStyle = normalizeStyle(style);
+
+    getThemeRoot().dataset.theme = nextTheme;
+    getThemeRoot().dataset.style = nextStyle;
+    if (document.body) {
+      document.body.dataset.theme = nextTheme;
+      document.body.dataset.style = nextStyle;
+    }
+
+    saveTheme(nextTheme);
+    saveStyle(nextStyle);
+    updateAppearanceUi(nextTheme, nextStyle);
+
+    // THEME: reload piece colors from CSS vars after appearance vars switch.
+    loadPieceColors();
+
+    if (state && typeof state === 'object') {
+      state.theme = nextTheme;
+      state.stylePreset = nextStyle;
+    }
+  }
+
+  function openOptionsScreen(screenId, phase) {
+    optionsReturnState = { screenId, phase };
+    showScreen('screen-options');
+    state.phase = 'options';
+  }
+
+  function closeOptionsScreen() {
+    showScreen(optionsReturnState.screenId);
+    state.phase = optionsReturnState.phase;
+  }
+
+  function initAppearanceControls() {
+    dom.modeButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        applyAppearance(button.dataset.modeValue, getActiveStyle());
+      });
+    });
+
+    dom.presetCards.forEach(card => {
       card.addEventListener('click', () => {
-        const theme = card.dataset.themeValue;
-        applyTheme(theme);
-        // Sync game state theme even before game starts
-        state.theme = theme;
+        applyAppearance(getActiveTheme(), card.dataset.styleValue);
       });
     });
 
     dom.btnStart.addEventListener('click', () => startGame());
+    dom.btnOpenOptions.addEventListener('click', () => openOptionsScreen('screen-start', 'start'));
+    dom.btnOptionsBack.addEventListener('click', () => closeOptionsScreen());
 
     dom.btnPlayAgain.addEventListener('click', () => startGame());
-
-    dom.btnChangeTheme.addEventListener('click', () => {
-      showScreen('screen-start');
-      state.phase = 'start';
+    dom.btnOpenOptionsGameover.addEventListener('click', () => {
+      openOptionsScreen('screen-gameover', 'gameover');
     });
   }
 
@@ -292,8 +419,9 @@
       lastKickIndex:   0,
       actionTextTimer: 0,
       levelUpTimer:    0,
-      // Theme is read from body at render time; stored here for reference
-      theme: document.body.dataset.theme || 'dark',
+      // Theme is read from the document root at render time; stored here for reference
+      theme: getActiveTheme(),
+      stylePreset: getActiveStyle(),
     };
 
     fillNextQueue();
@@ -512,11 +640,18 @@
   }
 
   function collapseRows(rows) {
-    const sorted = [...rows].sort((a, b) => b - a);
-    for (const r of sorted) {
-      state.board.splice(r, 1);
-      state.board.unshift(new Array(COLS).fill(0));
-    }
+    const rowsToClear = new Set(rows);
+    const remainingRows = state.board.filter((_, rowIndex) => !rowsToClear.has(rowIndex));
+    const clearedCount = state.board.length - remainingRows.length;
+
+    // Rebuild the board in one pass. Repeated splice()+unshift() mutates row
+    // indices mid-loop, which can skip or preserve rows during 2+ line clears.
+    const rebuiltBoard = Array.from(
+      { length: clearedCount },
+      () => new Array(COLS).fill(0)
+    ).concat(remainingRows);
+
+    state.board = rebuiltBoard;
   }
 
   function spawnNext() {
@@ -667,6 +802,10 @@
     }
     if (phase === 'paused') {
       if (e.code === 'Escape' || e.code === 'KeyP') resumeGame();
+      return;
+    }
+    if (phase === 'options') {
+      if (e.code === 'Escape') closeOptionsScreen();
       return;
     }
     if (phase !== 'playing') return;
@@ -1012,17 +1151,19 @@
   // ═══════════════════════════════════════════════════════════════
 
   function showScreen(id) {
-    [dom.screenStart, dom.screenPause, dom.screenGameover].forEach(el => {
+    [dom.screenStart, dom.screenOptions, dom.screenPause, dom.screenGameover].forEach(el => {
       el.classList.remove('screen--active');
     });
     if (id) document.getElementById(id).classList.add('screen--active');
   }
 
   function startGame() {
-    // Lock in the currently selected theme before game starts
-    state.theme = document.body.dataset.theme || 'dark';
+    // Lock in the currently selected appearance before game starts.
+    state.theme = getActiveTheme();
+    state.stylePreset = getActiveStyle();
     initState();
-    state.theme = document.body.dataset.theme || 'dark'; // re-apply after initState reset
+    state.theme = getActiveTheme(); // re-apply after initState reset
+    state.stylePreset = getActiveStyle();
     showScreen(null);
     state.phase = 'playing';
     updateHud();
@@ -1077,11 +1218,10 @@
   function resizeCanvases() {
     const boardW = COLS         * CELL_SIZE;
     const boardH = VISIBLE_ROWS * CELL_SIZE;
-    dom.boardCanvas.width        = boardW;
-    dom.boardCanvas.height       = boardH;
-    dom.boardCanvas.style.width  = boardW + 'px';
-    dom.boardCanvas.style.height = boardH + 'px';
-    // hold (120×120) and next (120×360) sizes are set in HTML attributes
+    dom.boardCanvas.width  = boardW;
+    dom.boardCanvas.height = boardH;
+    // Keep the drawing buffer fixed; CSS controls responsive display size.
+    // Hold (120x120) and next (120x360) sizes are set in HTML attributes.
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -1092,15 +1232,16 @@
     cacheDom();
     resizeCanvases();
 
-    // Restore last theme from localStorage and apply it
+    // Restore last appearance from localStorage and apply it.
     const savedTheme = loadSavedTheme();
-    applyTheme(savedTheme);
+    const savedStyle = loadSavedStyle();
+    applyAppearance(savedTheme, savedStyle);
 
-    // THEME: seed piece colors from CSS vars on startup
+    // THEME: seed piece colors from CSS vars on startup.
     loadPieceColors();
 
-    // Wire up theme selector and game buttons
-    initThemeSelector();
+    // Wire up appearance controls and game buttons.
+    initAppearanceControls();
 
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup',   onKeyUp);

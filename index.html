@@ -1,34 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark" data-style="fluent">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tetris</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body data-theme="dark">
+<body>
 
   <!-- Overlay screens (position:fixed, toggled with .screen--active) -->
   <div id="screen-start" class="screen screen--active">
     <div class="screen__content">
+      <p class="menu-kicker">Modern Arcade</p>
       <h1 class="screen__title">TETRIS</h1>
+      <p id="menu-appearance-summary" class="menu-summary">Fluent 2 · Dark</p>
 
-      <!-- Theme selector -->
-      <div class="theme-selector">
-        <p class="theme-selector__label">Choose Theme</p>
-        <div class="theme-selector__cards">
-          <button class="theme-card theme-card--dark theme-card--selected" data-theme-value="dark" aria-pressed="true">
-            <span class="theme-card__icon">🌑</span>
-            <span class="theme-card__name">DARK</span>
-          </button>
-          <button class="theme-card theme-card--bright" data-theme-value="bright" aria-pressed="false">
-            <span class="theme-card__icon">☀️</span>
-            <span class="theme-card__name">BRIGHT</span>
-          </button>
-        </div>
+      <div class="screen__actions screen__actions--stack">
+        <button id="btn-start" class="screen__btn">PRESS START</button>
+        <button id="btn-open-options" class="screen__btn screen__btn--secondary">OPTIONS</button>
       </div>
-
-      <button id="btn-start" class="screen__btn">PRESS START</button>
 
       <div class="screen__controls">
         <div class="controls-grid">
@@ -41,6 +31,107 @@
           <span>Pause</span><span>Esc</span>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div id="screen-options" class="screen">
+    <div class="screen__content screen__content--options">
+      <p class="menu-kicker">Appearance Settings</p>
+      <h2 class="screen__title">OPTIONS</h2>
+      <p class="screen__subtitle">Pick a color mode and compare each preset through compact visual previews.</p>
+
+      <section class="settings-block">
+        <div class="settings-block__header">
+          <h3 class="settings-block__title">Color Mode</h3>
+          <p class="settings-block__copy">Adjust overall brightness, contrast, and surface depth.</p>
+        </div>
+        <div class="mode-toggle" role="group" aria-label="Color Mode">
+          <button class="mode-chip is-selected" data-mode-value="dark" aria-pressed="true">Dark</button>
+          <button class="mode-chip" data-mode-value="bright" aria-pressed="false">Bright</button>
+        </div>
+      </section>
+
+      <section class="settings-block">
+        <div class="settings-block__header">
+          <h3 class="settings-block__title">Style Preset</h3>
+          <p class="settings-block__copy">Five popular visual directions with bright and dark support.</p>
+        </div>
+        <div class="preset-grid">
+          <button class="preset-card is-selected" data-style-value="fluent" aria-pressed="true">
+            <span class="preset-card__eyebrow">Microsoft</span>
+            <span class="preset-card__name">Fluent 2</span>
+            <span class="preset-card__preview" aria-hidden="true">
+              <span class="tetris-mini tetris-mini--card">
+                <span class="tetris-mini__panel tetris-mini__panel--hold"></span>
+                <span class="tetris-mini__board"></span>
+                <span class="tetris-mini__panel tetris-mini__panel--next"></span>
+              </span>
+            </span>
+          </button>
+          <button class="preset-card" data-style-value="material" aria-pressed="false">
+            <span class="preset-card__eyebrow">Google</span>
+            <span class="preset-card__name">Material 3</span>
+            <span class="preset-card__preview" aria-hidden="true">
+              <span class="tetris-mini tetris-mini--card">
+                <span class="tetris-mini__panel tetris-mini__panel--hold"></span>
+                <span class="tetris-mini__board"></span>
+                <span class="tetris-mini__panel tetris-mini__panel--next"></span>
+              </span>
+            </span>
+          </button>
+          <button class="preset-card" data-style-value="cupertino" aria-pressed="false">
+            <span class="preset-card__eyebrow">Apple</span>
+            <span class="preset-card__name">Cupertino</span>
+            <span class="preset-card__preview" aria-hidden="true">
+              <span class="tetris-mini tetris-mini--card">
+                <span class="tetris-mini__panel tetris-mini__panel--hold"></span>
+                <span class="tetris-mini__board"></span>
+                <span class="tetris-mini__panel tetris-mini__panel--next"></span>
+              </span>
+            </span>
+          </button>
+          <button class="preset-card" data-style-value="shadcn" aria-pressed="false">
+            <span class="preset-card__eyebrow">Minimal</span>
+            <span class="preset-card__name">shadcn/ui</span>
+            <span class="preset-card__preview" aria-hidden="true">
+              <span class="tetris-mini tetris-mini--card">
+                <span class="tetris-mini__panel tetris-mini__panel--hold"></span>
+                <span class="tetris-mini__board"></span>
+                <span class="tetris-mini__panel tetris-mini__panel--next"></span>
+              </span>
+            </span>
+          </button>
+          <button class="preset-card" data-style-value="atlassian" aria-pressed="false">
+            <span class="preset-card__eyebrow">Productivity</span>
+            <span class="preset-card__name">Atlassian</span>
+            <span class="preset-card__preview" aria-hidden="true">
+              <span class="tetris-mini tetris-mini--card">
+                <span class="tetris-mini__panel tetris-mini__panel--hold"></span>
+                <span class="tetris-mini__board"></span>
+                <span class="tetris-mini__panel tetris-mini__panel--next"></span>
+              </span>
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <div class="appearance-preview">
+        <p class="appearance-preview__label">Current Selection</p>
+        <p id="appearance-preview-name" class="appearance-preview__name">Fluent 2 / Dark</p>
+        <div class="appearance-preview__scene" aria-hidden="true">
+          <span class="tetris-mini tetris-mini--scene">
+            <span class="tetris-mini__panel tetris-mini__panel--hold"></span>
+            <span class="tetris-mini__board"></span>
+            <span class="tetris-mini__panel tetris-mini__panel--next"></span>
+          </span>
+        </div>
+        <p id="appearance-preview-copy" class="visually-hidden">Cool acrylic layers, luminous accents, productivity feel.</p>
+      </div>
+
+      <div class="screen__actions">
+        <button id="btn-options-back" class="screen__btn screen__btn--secondary">BACK TO MENU</button>
+      </div>
+      <p class="screen__subtitle">Press <kbd>Esc</kbd> to return.</p>
     </div>
   </div>
 
@@ -58,7 +149,7 @@
       <p class="screen__high-score">Best: <span id="high-score-display">0</span></p>
       <div class="screen__actions">
         <button id="btn-play-again" class="screen__btn">PLAY AGAIN</button>
-        <button id="btn-change-theme" class="screen__btn screen__btn--secondary">CHANGE THEME</button>
+        <button id="btn-open-options-gameover" class="screen__btn screen__btn--secondary">OPTIONS</button>
       </div>
       <p class="screen__subtitle">or press <kbd>Enter</kbd> to restart</p>
     </div>
