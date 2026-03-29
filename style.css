@@ -352,16 +352,20 @@ body[data-theme="bright"][data-style="atlassian"] {
 
 html,
 body {
+  height: 100%;
   min-height: 100%;
+  background: var(--bg-app);
 }
 
 body {
   --cell-size: 30px;
+  width: 100%;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 24px 18px;
   overflow: hidden;
   background: var(--bg-app);
@@ -525,7 +529,7 @@ body::after {
 }
 
 .screen__btn:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
   filter: saturate(108%);
 }
 
@@ -597,7 +601,7 @@ kbd {
   color: var(--text-accent);
   font-size: 1rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
 }
 
@@ -631,14 +635,18 @@ kbd {
 
 .mode-chip:hover,
 .preset-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
 }
 
 .mode-chip.is-selected {
+  transform: translateY(-2px);
   border-color: var(--border-strong);
   background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
   color: var(--button-primary-text);
-  box-shadow: var(--panel-shadow);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 22px color-mix(in srgb, var(--accent-ring) 78%, transparent),
+    var(--panel-shadow);
 }
 
 .preset-grid {
@@ -679,8 +687,13 @@ kbd {
 }
 
 .preset-card.is-selected {
+  transform: translateY(-2px);
   border-color: var(--border-strong);
-  box-shadow: inset 0 1px 0 var(--surface-highlight), var(--panel-shadow);
+  box-shadow:
+    inset 0 1px 0 var(--surface-highlight),
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 26px color-mix(in srgb, var(--board-glow) 64%, transparent),
+    var(--panel-shadow);
 }
 
 .preset-card__eyebrow {
@@ -787,7 +800,7 @@ kbd {
   color: var(--text-secondary);
   font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
 }
 
@@ -850,8 +863,8 @@ kbd {
   position: relative;
   display: flex;
   align-items: flex-start;
-  gap: 18px;
-  padding: 20px;
+  gap: clamp(14px, 2vw, 22px);
+  padding: clamp(14px, 2vw, 22px);
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-screen);
   background: var(--surface-1);
@@ -877,13 +890,13 @@ kbd {
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   width: 152px;
   flex-shrink: 0;
 }
 
 .panel__section {
-  padding: 14px;
+  padding: 16px;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-panel);
   background: var(--surface-2);
@@ -899,7 +912,7 @@ kbd {
   color: var(--text-secondary);
   font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
 }
 
@@ -910,10 +923,12 @@ kbd {
 }
 
 .stat {
-  padding: 10px 12px;
+  padding: 12px 13px;
   border: 1px solid var(--card-border);
   border-radius: var(--radius-card);
-  background: var(--card-bg);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0)),
+    var(--card-bg);
   box-shadow: inset 0 1px 0 var(--surface-highlight);
   position: relative;
   overflow: visible;
@@ -931,12 +946,15 @@ kbd {
 
 .stat__value {
   color: var(--text-primary);
-  font-size: 1.35rem;
+  font-size: 1.46rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
 
 .board-wrapper {
+  --impact-scale: 0;
+  --impact-shift: 0;
+  --board-pulse: 0;
   position: relative;
   flex-shrink: 0;
   padding: 16px;
@@ -946,10 +964,16 @@ kbd {
   box-shadow:
     inset 0 1px 0 var(--surface-highlight),
     0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 0 calc(20px + var(--board-pulse) * 22px) color-mix(in srgb, var(--board-glow) 84%, transparent),
     var(--panel-shadow);
   backdrop-filter: blur(var(--backdrop-blur)) saturate(165%);
+  filter: saturate(calc(1 + var(--board-pulse) * 0.16));
   isolation: isolate;
   overflow: visible;
+  transform:
+    translateY(calc(var(--impact-shift) * 1px))
+    scale(calc(1 + var(--impact-scale)));
+  transition: transform 90ms ease, box-shadow 140ms ease, filter 140ms ease;
 }
 
 .board-wrapper::before {
@@ -1054,13 +1078,18 @@ canvas#canvas-next {
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  white-space: nowrap;
+  white-space: normal;
   pointer-events: none;
   transform: translateX(-50%);
   transition: opacity 0.16s ease, transform 0.16s ease;
 }
 
 .action-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.16rem;
+  min-width: 180px;
   top: 28%;
   padding: 0.6rem 1rem;
   border: 1px solid var(--border-soft);
@@ -1070,6 +1099,41 @@ canvas#canvas-next {
   box-shadow: var(--panel-shadow);
   font-size: 0.92rem;
   text-align: center;
+}
+
+.action-text__headline {
+  font-size: 0.94rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.action-text__detail {
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.action-text--normal {
+  border-color: var(--border-soft);
+}
+
+.action-text--strong {
+  transform: translateX(-50%) translateY(-4px);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 24px color-mix(in srgb, var(--board-glow) 70%, transparent),
+    var(--panel-shadow);
+}
+
+.action-text--critical {
+  background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
+  color: var(--button-primary-text);
+  border-color: transparent;
+}
+
+.action-text--critical .action-text__detail {
+  color: color-mix(in srgb, var(--button-primary-text) 72%, transparent);
 }
 
 .level-up-text {
@@ -1084,6 +1148,10 @@ canvas#canvas-next {
   transform: translate(-50%, -50%) scale(0.98);
 }
 
+.level-up-text--level {
+  letter-spacing: 0.18em;
+}
+
 .action-text.is-visible,
 .level-up-text.is-visible {
   opacity: 1;
@@ -1091,6 +1159,28 @@ canvas#canvas-next {
 
 .level-up-text.is-visible {
   transform: translate(-50%, -50%) scale(1);
+}
+
+body.is-theme-morphing,
+body.is-theme-morphing .game-container,
+body.is-theme-morphing .panel__section,
+body.is-theme-morphing .board-wrapper,
+body.is-theme-morphing .screen__content,
+body.is-theme-morphing .screen__btn,
+body.is-theme-morphing .preset-card,
+body.is-theme-morphing .mode-chip {
+  transition:
+    background 220ms ease,
+    color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    filter 220ms ease,
+    transform 220ms ease;
+}
+
+body.is-theme-morphing .game-container,
+body.is-theme-morphing .board-wrapper {
+  filter: saturate(1.08);
 }
 
 @media (max-width: 900px) {

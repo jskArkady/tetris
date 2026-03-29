@@ -1,8 +1,9 @@
-# Agent reference files — not part of the project
+# Agent / Superpowers working files — not part of the project
 DESIGN.md
 *-DESIGN.md
 DONE.md
 tasks/
+.superpowers/
 docs/
 
 # Backups

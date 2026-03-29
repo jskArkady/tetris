@@ -7,6 +7,8 @@
 (function () {
   'use strict';
 
+  const VisualEffects = window.TetrisEffects;
+
   // ═══════════════════════════════════════════════════════════════
   // SECTION 1: CONSTANTS
   // All magic numbers live here. Never use raw literals in logic.
@@ -199,6 +201,8 @@
 
   function cacheDom() {
     dom = {
+      gameContainer:    document.getElementById('game-container'),
+      boardWrapper:     document.getElementById('board-wrapper'),
       boardCanvas:      document.getElementById('canvas-board'),
       holdCanvas:       document.getElementById('canvas-hold'),
       nextCanvas:       document.getElementById('canvas-next'),
@@ -207,6 +211,8 @@
       hudLines:         document.getElementById('hud-lines'),
       hudHighScore:     document.getElementById('hud-high-score'),
       actionText:       document.getElementById('action-text'),
+      actionTextHeadline: document.getElementById('action-text-headline'),
+      actionTextDetail: document.getElementById('action-text-detail'),
       levelUpText:      document.getElementById('level-up-text'),
       screenStart:      document.getElementById('screen-start'),
       screenOptions:    document.getElementById('screen-options'),
@@ -342,6 +348,9 @@
     if (state && typeof state === 'object') {
       state.theme = nextTheme;
       state.stylePreset = nextStyle;
+      if (state.effects) {
+        VisualEffects.triggerAppearanceMorph(state.effects);
+      }
     }
   }
 
@@ -403,6 +412,7 @@
       lines:     0,
       combo:     -1,
       backToBack: false,
+      pendingHardDrop: null,
       lockTimer:    0,
       lockResets:   0,
       isOnSurface:  false,
@@ -419,6 +429,7 @@
       lastKickIndex:   0,
       actionTextTimer: 0,
       levelUpTimer:    0,
+      effects: VisualEffects.createVisualEffectsState(),
       // Theme is read from the document root at render time; stored here for reference
       theme: getActiveTheme(),
       stylePreset: getActiveStyle(),
@@ -561,8 +572,10 @@
   }
 
   function hardDrop() {
+    const fromRow = state.current.y;
     const cellsDropped = state.ghostY - state.current.y;
     state.current.y = state.ghostY;
+    state.pendingHardDrop = { fromRow, toRow: state.ghostY };
     state.score += HARD_DROP_SCORE_PER_CELL * cellsDropped;
     updateHud();
     lockPiece();
@@ -628,11 +641,21 @@
       if (state.board[r].every(cell => cell !== 0)) fullRows.push(r);
     }
 
+    if (state.pendingHardDrop) {
+      VisualEffects.triggerHardDropImpact(
+        state.effects,
+        state.pendingHardDrop.fromRow,
+        state.pendingHardDrop.toRow
+      );
+      state.pendingHardDrop = null;
+    }
+
     scoreForClear(fullRows.length, tSpinResult);
 
     if (fullRows.length > 0) {
       state.clearingRows   = fullRows;
       state.clearAnimTimer = CLEAR_ANIM_DURATION;
+      VisualEffects.triggerLineClearSweep(state.effects, fullRows);
     } else {
       state.combo = -1; // break combo on no-clear
       spawnNext();
@@ -734,20 +757,27 @@
 
     state.score += baseScore + comboScore;
 
-    const notifParts = [];
-    if (actionLabel)        notifParts.push(actionLabel);
-    if (b2bBonus)           notifParts.push('BACK-TO-BACK!');
-    if (state.combo >= 2)   notifParts.push(state.combo + 'x COMBO');
+    const notification = VisualEffects.buildActionNotification({
+      actionLabel,
+      b2bBonus,
+      combo: state.combo,
+      linesCleared,
+    });
 
-    if (notifParts.length > 0) {
-      dom.actionText.textContent = notifParts.join('\n');
-      state.actionTextTimer = 1800;
-      dom.actionText.classList.add("is-visible");
+    if (notification.headline || notification.detail) {
+      showActionNotification(notification);
     }
 
     advanceLevel(linesCleared);
     updateHud();
     updateHighScore();
+  }
+
+  function showActionNotification(notification) {
+    dom.actionTextHeadline.textContent = notification.headline;
+    dom.actionTextDetail.textContent = notification.detail;
+    dom.actionText.className = `action-text action-text--${notification.tone} is-visible`;
+    state.actionTextTimer = notification.durationMs;
   }
 
   function advanceLevel(linesCleared) {
@@ -757,9 +787,10 @@
     const newLevel   = Math.floor(state.lines / LINES_PER_LEVEL) + 1;
     if (newLevel > prevLevel) {
       state.level = newLevel;
-      dom.levelUpText.textContent = 'LEVEL ' + state.level + '!';
-      state.levelUpTimer = 1500;
-      dom.levelUpText.classList.add('is-visible');
+      const levelNotification = VisualEffects.buildLevelUpNotification(state.level);
+      dom.levelUpText.textContent = levelNotification.headline;
+      dom.levelUpText.className = `level-up-text level-up-text--${levelNotification.tone} is-visible`;
+      state.levelUpTimer = levelNotification.durationMs;
     }
   }
 
@@ -900,16 +931,25 @@
   // ═══════════════════════════════════════════════════════════════
 
   function update(dt) {
+    VisualEffects.tickVisualEffects(state.effects, dt);
+
     if (state.phase !== 'playing') return;
 
     // Tick notification text timers
     if (state.actionTextTimer > 0) {
       state.actionTextTimer -= dt;
-      if (state.actionTextTimer <= 0) { dom.actionText.textContent = ''; dom.actionText.classList.remove('is-visible'); }
+      if (state.actionTextTimer <= 0) {
+        dom.actionTextHeadline.textContent = '';
+        dom.actionTextDetail.textContent = '';
+        dom.actionText.className = 'action-text';
+      }
     }
     if (state.levelUpTimer > 0) {
       state.levelUpTimer -= dt;
-      if (state.levelUpTimer <= 0) { dom.levelUpText.textContent = ''; dom.levelUpText.classList.remove('is-visible'); }
+      if (state.levelUpTimer <= 0) {
+        dom.levelUpText.textContent = '';
+        dom.levelUpText.className = 'level-up-text';
+      }
     }
 
     // During clear animation: countdown then collapse and spawn next
@@ -982,6 +1022,23 @@
     ctx.fillRect(x, y + s - 2, s, 2);
   }
 
+  function renderClearSweep(ctx, boardRow, visibleRow) {
+    const effect = state.effects.lineClear;
+    if (!effect || !effect.rows.includes(boardRow)) return;
+
+    const visuals = VisualEffects.getLineClearVisuals(effect);
+    const sweepX = visuals.sweep * (COLS * CELL_SIZE + CELL_SIZE * 2) - CELL_SIZE;
+    const y = visibleRow * CELL_SIZE;
+
+    ctx.save();
+    ctx.globalAlpha = visuals.alpha;
+    ctx.fillStyle = flashColor(state.clearAnimTimer);
+    ctx.fillRect(0, y, COLS * CELL_SIZE, CELL_SIZE);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+    ctx.fillRect(sweepX, y, CELL_SIZE * 1.2, CELL_SIZE);
+    ctx.restore();
+  }
+
   function renderBoard() {
     const ctx = dom.boardCtx;
     const W   = COLS         * CELL_SIZE;
@@ -1013,6 +1070,9 @@
           const isClearing = state.clearingRows.includes(boardRow);
           const color = isClearing ? flashColor(state.clearAnimTimer) : PIECE_COLORS[cell];
           drawCell(ctx, c, r, color, CELL_SIZE, 0, 0);
+          if (isClearing && c === 0) {
+            renderClearSweep(ctx, boardRow, r);
+          }
         }
       }
     }
@@ -1136,7 +1196,29 @@
     dom.hudHighScore.textContent = state.highScore.toLocaleString();
   }
 
+  function applyBoardEffectVars() {
+    const hardDropVisuals = VisualEffects.getHardDropVisuals(state.effects.hardDrop);
+    const clearVisuals = VisualEffects.getLineClearVisuals(state.effects.lineClear);
+    const pulseStrength = state.effects.boardPulse
+      ? 1 - (state.effects.boardPulse.elapsedMs / state.effects.boardPulse.durationMs)
+      : 0;
+
+    dom.boardWrapper.style.setProperty('--impact-scale', hardDropVisuals.scaleBoost.toFixed(4));
+    dom.boardWrapper.style.setProperty('--impact-shift', hardDropVisuals.shiftPx.toFixed(2));
+    dom.boardWrapper.style.setProperty('--board-pulse', Math.max(
+      hardDropVisuals.glow,
+      clearVisuals.glow,
+      pulseStrength
+    ).toFixed(4));
+  }
+
+  function syncEffectClasses() {
+    document.body.classList.toggle('is-theme-morphing', !!state.effects.appearanceMorph);
+  }
+
   function render() {
+    applyBoardEffectVars();
+    syncEffectClasses();
     renderBoard();
     if (state.phase === 'playing' || state.phase === 'paused') {
       renderGhost();
@@ -1162,6 +1244,15 @@
     state.theme = getActiveTheme();
     state.stylePreset = getActiveStyle();
     initState();
+    dom.boardWrapper.style.removeProperty('--impact-scale');
+    dom.boardWrapper.style.removeProperty('--impact-shift');
+    dom.boardWrapper.style.removeProperty('--board-pulse');
+    document.body.classList.remove('is-theme-morphing');
+    dom.actionText.className = 'action-text';
+    dom.actionTextHeadline.textContent = '';
+    dom.actionTextDetail.textContent = '';
+    dom.levelUpText.className = 'level-up-text';
+    dom.levelUpText.textContent = '';
     state.theme = getActiveTheme(); // re-apply after initState reset
     state.stylePreset = getActiveStyle();
     showScreen(null);

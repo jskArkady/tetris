@@ -156,7 +156,7 @@
   </div>
 
   <!-- Main game layout -->
-  <main class="game-container">
+  <main id="game-container" class="game-container">
 
     <!-- Left panel: Hold + Stats -->
     <aside class="panel panel--left">
@@ -185,9 +185,12 @@
     </aside>
 
     <!-- Center: Main board -->
-    <div class="board-wrapper">
+    <div id="board-wrapper" class="board-wrapper">
       <canvas id="canvas-board"></canvas>
-      <div id="action-text" class="action-text" aria-live="polite"></div>
+      <div id="action-text" class="action-text" aria-live="polite">
+        <span id="action-text-headline" class="action-text__headline"></span>
+        <span id="action-text-detail" class="action-text__detail"></span>
+      </div>
       <div id="level-up-text" class="level-up-text" aria-live="polite"></div>
     </div>
 
@@ -201,6 +204,7 @@
 
   </main>
 
+  <script src="effects.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
