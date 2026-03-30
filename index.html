@@ -13,7 +13,7 @@
     <div class="screen__content">
       <p class="menu-kicker">Modern Arcade</p>
       <h1 class="screen__title">TETRIS</h1>
-      <p id="menu-appearance-summary" class="menu-summary">Fluent 2 · Dark</p>
+      <p id="menu-appearance-summary" class="menu-summary"></p>
 
       <div class="screen__actions screen__actions--stack">
         <button id="btn-start" class="screen__btn">PRESS START</button>
@@ -38,12 +38,12 @@
     <div class="screen__content screen__content--options">
       <p class="menu-kicker">Appearance Settings</p>
       <h2 class="screen__title">OPTIONS</h2>
-      <p class="screen__subtitle">Pick a color mode and compare each preset through compact visual previews.</p>
+      <p id="options-subtitle" class="screen__subtitle"></p>
 
       <section class="settings-block">
         <div class="settings-block__header">
-          <h3 class="settings-block__title">Color Mode</h3>
-          <p class="settings-block__copy">Adjust overall brightness, contrast, and surface depth.</p>
+          <h3 id="options-mode-title" class="settings-block__title"></h3>
+          <p id="options-mode-copy" class="settings-block__copy"></p>
         </div>
         <div class="mode-toggle" role="group" aria-label="Color Mode">
           <button class="mode-chip is-selected" data-mode-value="dark" aria-pressed="true">Dark</button>
@@ -51,82 +51,13 @@
         </div>
       </section>
 
-      <section class="settings-block">
-        <div class="settings-block__header">
-          <h3 class="settings-block__title">Style Preset</h3>
-          <p class="settings-block__copy">Five popular visual directions with bright and dark support.</p>
+      <section class="settings-block settings-block--themes">
+        <div class="settings-block__header settings-block__header--compact">
+          <h3 id="options-themes-title" class="settings-block__title"></h3>
+          <p id="options-themes-copy" class="settings-block__copy"></p>
         </div>
-        <div class="preset-grid">
-          <button class="preset-card is-selected" data-style-value="fluent" aria-pressed="true">
-            <span class="preset-card__eyebrow">Microsoft</span>
-            <span class="preset-card__name">Fluent 2</span>
-            <span class="preset-card__preview" aria-hidden="true">
-              <span class="tetris-mini tetris-mini--card">
-                <span class="tetris-mini__panel tetris-mini__panel--hold"></span>
-                <span class="tetris-mini__board"></span>
-                <span class="tetris-mini__panel tetris-mini__panel--next"></span>
-              </span>
-            </span>
-          </button>
-          <button class="preset-card" data-style-value="material" aria-pressed="false">
-            <span class="preset-card__eyebrow">Google</span>
-            <span class="preset-card__name">Material 3</span>
-            <span class="preset-card__preview" aria-hidden="true">
-              <span class="tetris-mini tetris-mini--card">
-                <span class="tetris-mini__panel tetris-mini__panel--hold"></span>
-                <span class="tetris-mini__board"></span>
-                <span class="tetris-mini__panel tetris-mini__panel--next"></span>
-              </span>
-            </span>
-          </button>
-          <button class="preset-card" data-style-value="cupertino" aria-pressed="false">
-            <span class="preset-card__eyebrow">Apple</span>
-            <span class="preset-card__name">Cupertino</span>
-            <span class="preset-card__preview" aria-hidden="true">
-              <span class="tetris-mini tetris-mini--card">
-                <span class="tetris-mini__panel tetris-mini__panel--hold"></span>
-                <span class="tetris-mini__board"></span>
-                <span class="tetris-mini__panel tetris-mini__panel--next"></span>
-              </span>
-            </span>
-          </button>
-          <button class="preset-card" data-style-value="shadcn" aria-pressed="false">
-            <span class="preset-card__eyebrow">Minimal</span>
-            <span class="preset-card__name">shadcn/ui</span>
-            <span class="preset-card__preview" aria-hidden="true">
-              <span class="tetris-mini tetris-mini--card">
-                <span class="tetris-mini__panel tetris-mini__panel--hold"></span>
-                <span class="tetris-mini__board"></span>
-                <span class="tetris-mini__panel tetris-mini__panel--next"></span>
-              </span>
-            </span>
-          </button>
-          <button class="preset-card" data-style-value="atlassian" aria-pressed="false">
-            <span class="preset-card__eyebrow">Productivity</span>
-            <span class="preset-card__name">Atlassian</span>
-            <span class="preset-card__preview" aria-hidden="true">
-              <span class="tetris-mini tetris-mini--card">
-                <span class="tetris-mini__panel tetris-mini__panel--hold"></span>
-                <span class="tetris-mini__board"></span>
-                <span class="tetris-mini__panel tetris-mini__panel--next"></span>
-              </span>
-            </span>
-          </button>
-        </div>
+        <div id="preset-grid" class="preset-grid"></div>
       </section>
-
-      <div class="appearance-preview">
-        <p class="appearance-preview__label">Current Selection</p>
-        <p id="appearance-preview-name" class="appearance-preview__name">Fluent 2 / Dark</p>
-        <div class="appearance-preview__scene" aria-hidden="true">
-          <span class="tetris-mini tetris-mini--scene">
-            <span class="tetris-mini__panel tetris-mini__panel--hold"></span>
-            <span class="tetris-mini__board"></span>
-            <span class="tetris-mini__panel tetris-mini__panel--next"></span>
-          </span>
-        </div>
-        <p id="appearance-preview-copy" class="visually-hidden">Cool acrylic layers, luminous accents, productivity feel.</p>
-      </div>
 
       <div class="screen__actions">
         <button id="btn-options-back" class="screen__btn screen__btn--secondary">BACK TO MENU</button>
@@ -204,6 +135,7 @@
 
   </main>
 
+  <script src="theme-options.js"></script>
   <script src="effects.js"></script>
   <script src="game.js"></script>
 </body>
