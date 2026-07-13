@@ -733,7 +733,6 @@ kbd {
   --preview-border: rgba(130, 223, 255, 0.24);
   --preview-bg-start: rgba(10, 23, 39, 0.94);
   --preview-bg-end: rgba(21, 33, 58, 0.94);
-  --preview-chip: rgba(140, 232, 255, 0.58);
   --preview-panel: rgba(225, 245, 255, 0.22);
   --preview-accent: #6df0ff;
   --preview-highlight: #6d8cff;
@@ -745,7 +744,6 @@ kbd {
   --preview-border: rgba(203, 153, 255, 0.24);
   --preview-bg-start: rgba(38, 18, 61, 0.94);
   --preview-bg-end: rgba(59, 24, 73, 0.94);
-  --preview-chip: rgba(233, 205, 255, 0.56);
   --preview-panel: rgba(255, 226, 239, 0.2);
   --preview-accent: #b785ff;
   --preview-highlight: #ff8fb8;
@@ -757,7 +755,6 @@ kbd {
   --preview-border: rgba(198, 214, 255, 0.22);
   --preview-bg-start: rgba(31, 35, 48, 0.94);
   --preview-bg-end: rgba(44, 49, 67, 0.94);
-  --preview-chip: rgba(239, 243, 255, 0.5);
   --preview-panel: rgba(255, 255, 255, 0.18);
   --preview-accent: #d8e4ff;
   --preview-highlight: #ffc8dc;
@@ -769,7 +766,6 @@ kbd {
   --preview-border: rgba(255, 255, 255, 0.1);
   --preview-bg-start: rgba(13, 13, 15, 0.96);
   --preview-bg-end: rgba(24, 25, 29, 0.96);
-  --preview-chip: rgba(255, 255, 255, 0.38);
   --preview-panel: rgba(255, 255, 255, 0.12);
   --preview-accent: #f4f4f5;
   --preview-highlight: #6f7380;
@@ -781,7 +777,6 @@ kbd {
   --preview-border: rgba(127, 183, 255, 0.22);
   --preview-bg-start: rgba(14, 25, 41, 0.94);
   --preview-bg-end: rgba(23, 38, 67, 0.94);
-  --preview-chip: rgba(195, 223, 255, 0.52);
   --preview-panel: rgba(217, 236, 255, 0.18);
   --preview-accent: #7bb4ff;
   --preview-highlight: #71deff;

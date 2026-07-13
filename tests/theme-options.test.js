@@ -187,9 +187,9 @@ test('mode toggles update selection without re-rendering the preset grid', () =>
   for (const id of ids) {
     elements.set(id, id === 'preset-grid' ? createPresetGrid() : createElement(id));
   }
-  elements.get('canvas-board').getContext = createCanvasContext;
-  elements.get('canvas-hold').getContext = createCanvasContext;
-  elements.get('canvas-next').getContext = createCanvasContext;
+  attachCanvasContext(elements.get('canvas-board'));
+  attachCanvasContext(elements.get('canvas-hold'), 120, 120);
+  attachCanvasContext(elements.get('canvas-next'), 120, 360);
 
   let cardMarkupCalls = 0;
   const themeOptions = {
@@ -200,12 +200,16 @@ test('mode toggles update selection without re-rendering the preset grid', () =>
     },
   };
 
+  let scheduledFrame = null;
   const context = {
     window: null,
     document: null,
     localStorage: createLocalStorage(),
     getComputedStyle: () => ({ getPropertyValue: () => '' }),
-    requestAnimationFrame: () => 0,
+    requestAnimationFrame(callback) {
+      scheduledFrame = callback;
+      return 1;
+    },
     cancelAnimationFrame: () => {},
     console,
     performance: { now: () => 0 },
@@ -232,6 +236,16 @@ test('mode toggles update selection without re-rendering the preset grid', () =>
 
   assert.equal(context.document._listeners.DOMContentLoaded.length, 1);
   context.document._listeners.DOMContentLoaded[0]();
+
+  assert.equal(typeof scheduledFrame, 'function');
+  scheduledFrame(16);
+
+  const nextPieceCells = elements.get('canvas-next')._context.fillRectCalls
+    .filter(([, , width, height]) => width === 24 && height === 24);
+  assert.equal(nextPieceCells.length, 12);
+  assert.equal(nextPieceCells.filter(([, y]) => y < 120).length, 4);
+  assert.equal(nextPieceCells.filter(([, y]) => y >= 120 && y < 240).length, 4);
+  assert.equal(nextPieceCells.filter(([, y]) => y >= 240).length, 4);
 
   assert.equal(cardMarkupCalls, 1);
   assert.ok(modeButtons[0].classList.contains('is-selected'));
@@ -319,8 +333,19 @@ function createDocument(elements, modeButtons) {
   };
 }
 
+function attachCanvasContext(canvas, width = 0, height = 0) {
+  const context = createCanvasContext();
+  canvas.width = width;
+  canvas.height = height;
+  canvas._context = context;
+  canvas.getContext = () => context;
+}
+
 function createCanvasContext() {
+  const fillRectCalls = [];
+
   return {
+    fillRectCalls,
     fillStyle: '',
     strokeStyle: '',
     globalAlpha: 1,
@@ -329,7 +354,9 @@ function createCanvasContext() {
     moveTo() {},
     lineTo() {},
     stroke() {},
-    fillRect() {},
+    fillRect(...args) {
+      fillRectCalls.push(args);
+    },
     strokeRect() {},
     save() {},
     restore() {},

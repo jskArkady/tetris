@@ -19,7 +19,6 @@ No libraries, no build tools. Open `index.html` in any modern browser and play.
 - Start / Pause / Game Over screens
 - Line clear flash animation + level-up overlay
 - High score persistence (localStorage)
-- Touch / swipe controls (mobile)
 
 ## Controls
 
@@ -45,11 +44,12 @@ xdg-open index.html  # Linux
 
 - HTML5 Canvas
 - CSS3 (dark/bright themes via CSS custom properties, animations)
-- Vanilla JavaScript (single IIFE, no dependencies)
+- Vanilla JavaScript (`file://`-compatible IIFE/UMD modules, no dependencies)
 
 ## Theme System
 
-Select **Dark** or **Bright** theme on the start screen (persisted in `localStorage`).
+Choose one of five visual styles and a **Dark** or **Bright** color mode from the
+options screen. Both selections are persisted in `localStorage`.
 
 - All colors — background, panels, text, borders, overlays — are driven by CSS custom properties defined in `style.css` under `[data-theme="dark"]` and `[data-theme="bright"]` blocks.
 - Canvas rendering is also fully themed: `drawCell()` reads `--cell-bevel-light` and `--cell-bevel-shadow` via `getCssVar()` on every frame, so the piece bevel effect adapts correctly to both light and dark backgrounds.

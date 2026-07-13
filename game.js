@@ -2,7 +2,7 @@
  * game.js — Tetris Web Game
  *
  * Single IIFE. No ES modules (file:// compatible).
- * Architecture follows ADR-0001: rAF loop, single state object, Canvas rendering.
+ * Uses an rAF loop, a single state object, and Canvas rendering.
  */
 (function () {
   'use strict';
@@ -59,9 +59,9 @@
   };
 
   /**
-   * THEME: Load piece colors from CSS vars so future per-theme palettes are
-   * automatically picked up without touching JS. Falls back to hardcoded defaults
-   * if the CSS var is empty (e.g. in unit-test environments).
+   * Load piece colors from CSS vars so future per-theme palettes are picked up
+   * without touching JS. Falls back to hardcoded defaults when CSS vars are not
+   * available, such as in unit-test environments.
    */
   function loadPieceColors() {
     PIECE_COLORS[PIECE_I] = getCssVar('--piece-i') || '#00bcd4';
@@ -163,7 +163,14 @@
 
   const THEME_STORAGE_KEY = 'tetris-theme';
   const STYLE_STORAGE_KEY = 'tetris-style-preset';
+  const HIGH_SCORE_STORAGE_KEY = 'tetris_highscore';
   const DEFAULT_STYLE = 'fluent';
+
+  const GAME_KEYS = new Set([
+    'ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' ',
+    'KeyX', 'KeyZ', 'KeyC', 'ShiftLeft', 'ShiftRight',
+    'Escape', 'KeyP', 'Enter',
+  ]);
 
   // ═══════════════════════════════════════════════════════════════
   // SECTION 2: DOM REFERENCES
@@ -175,7 +182,6 @@
 
   function cacheDom() {
     dom = {
-      gameContainer:    document.getElementById('game-container'),
       boardWrapper:     document.getElementById('board-wrapper'),
       boardCanvas:      document.getElementById('canvas-board'),
       holdCanvas:       document.getElementById('canvas-hold'),
@@ -261,24 +267,34 @@
     return '';
   }
 
+  function loadFromStorage(key, fallbackValue) {
+    try {
+      const storedValue = localStorage.getItem(key);
+      return storedValue || fallbackValue;
+    } catch (_) {
+      return fallbackValue;
+    }
+  }
+
+  function saveToStorage(key, value) {
+    try { localStorage.setItem(key, String(value)); }
+    catch (_) { /* storage unavailable */ }
+  }
+
   function loadSavedTheme() {
-    try { return normalizeTheme(localStorage.getItem(THEME_STORAGE_KEY) || 'dark'); }
-    catch (_) { return 'dark'; }
+    return normalizeTheme(loadFromStorage(THEME_STORAGE_KEY, 'dark'));
   }
 
   function saveTheme(theme) {
-    try { localStorage.setItem(THEME_STORAGE_KEY, normalizeTheme(theme)); }
-    catch (_) { /* storage unavailable */ }
+    saveToStorage(THEME_STORAGE_KEY, normalizeTheme(theme));
   }
 
   function loadSavedStyle() {
-    try { return normalizeStyle(localStorage.getItem(STYLE_STORAGE_KEY) || DEFAULT_STYLE); }
-    catch (_) { return DEFAULT_STYLE; }
+    return normalizeStyle(loadFromStorage(STYLE_STORAGE_KEY, DEFAULT_STYLE));
   }
 
   function saveStyle(style) {
-    try { localStorage.setItem(STYLE_STORAGE_KEY, normalizeStyle(style)); }
-    catch (_) { /* storage unavailable */ }
+    saveToStorage(STYLE_STORAGE_KEY, normalizeStyle(style));
   }
 
   function renderThemeCards(theme, style) {
@@ -343,15 +359,11 @@
     saveStyle(nextStyle);
     updateAppearanceUi(nextTheme, nextStyle);
 
-    // THEME: reload piece colors from CSS vars after appearance vars switch.
+    // Reload piece colors after the active appearance variables change.
     loadPieceColors();
 
-    if (state && typeof state === 'object') {
-      state.theme = nextTheme;
-      state.stylePreset = nextStyle;
-      if (state.effects) {
-        VisualEffects.triggerAppearanceMorph(state.effects);
-      }
+    if (state.effects) {
+      VisualEffects.triggerAppearanceMorph(state.effects);
     }
   }
 
@@ -431,9 +443,6 @@
       actionTextTimer: 0,
       levelUpTimer:    0,
       effects: VisualEffects.createVisualEffectsState(),
-      // Theme is read from the document root at render time; stored here for reference
-      theme: getActiveTheme(),
-      stylePreset: getActiveStyle(),
     };
 
     fillNextQueue();
@@ -614,10 +623,10 @@
     const { type, rotation, x, y } = state.current;
     const cells = getCells(type, rotation, x, y);
 
-    // FIX [A]: detectTSpin() must run BEFORE writing cells to board.
+    // T-spin detection depends on the board state before this piece is written.
     const tSpinResult = detectTSpin();
 
-    // FIX [C]: Reset all lock-delay state so the game loop cannot fire a second lockPiece().
+    // Reset lock-delay state so the game loop cannot lock the same piece twice.
     state.lockTimer   = 0;
     state.lockResets  = 0;
     state.isOnSurface = false;
@@ -637,7 +646,7 @@
     }
 
     const fullRows = [];
-    // FIX [B]: Only scan visible rows (2..ROWS-1).
+    // Hidden rows do not participate in line clears.
     for (let r = 2; r < ROWS; r++) {
       if (state.board[r].every(cell => cell !== 0)) fullRows.push(r);
     }
@@ -679,7 +688,6 @@
   }
 
   function spawnNext() {
-    fillNextQueue();
     spawnPiece(drawFromQueue());
   }
 
@@ -731,7 +739,7 @@
 
     if (isTSpin && isMini) {
       baseScore   = (T_SPIN_MINI_SCORES[linesCleared] || 0) * lv;
-      actionLabel = linesCleared > 0 ? 'T-SPIN MINI' : 'T-SPIN MINI';
+      actionLabel = 'T-SPIN MINI';
     } else if (isTSpin) {
       baseScore   = (T_SPIN_SCORES[linesCleared] != null ? T_SPIN_SCORES[linesCleared] : T_SPIN_SCORES[0]) * lv;
       const labels = ['T-SPIN','T-SPIN SINGLE','T-SPIN DOUBLE','T-SPIN TRIPLE'];
@@ -800,15 +808,13 @@
   // ═══════════════════════════════════════════════════════════════
 
   function loadHighScore() {
-    try { return parseInt(localStorage.getItem('tetris_highscore') || '0', 10); }
-    catch (_) { return 0; }
+    return parseInt(loadFromStorage(HIGH_SCORE_STORAGE_KEY, '0'), 10);
   }
 
   function updateHighScore() {
     if (state.score > state.highScore) {
       state.highScore = state.score;
-      try { localStorage.setItem('tetris_highscore', String(state.highScore)); }
-      catch (_) { /* storage unavailable in some file:// contexts */ }
+      saveToStorage(HIGH_SCORE_STORAGE_KEY, state.highScore);
     }
   }
 
@@ -819,9 +825,7 @@
   const keys = {};
 
   function onKeyDown(e) {
-    const gameKeys = ['ArrowLeft','ArrowRight','ArrowDown','ArrowUp',' ',
-                      'KeyX','KeyZ','KeyC','ShiftLeft','ShiftRight','Escape','KeyP','Enter'];
-    if (gameKeys.includes(e.code)) e.preventDefault();
+    if (GAME_KEYS.has(e.code)) e.preventDefault();
 
     if (keys[e.code]) return; // already held — DAS/ARR handles repeat
     keys[e.code] = true;
@@ -958,7 +962,7 @@
       state.clearAnimTimer -= dt;
       if (state.clearAnimTimer <= 0) {
         collapseRows(state.clearingRows);
-        // FIX [D]: clearingRows is emptied BEFORE spawnNext().
+        // Clear this transition state before spawning the next piece.
         state.clearingRows   = [];
         state.clearAnimTimer = 0;
         spawnNext();
@@ -1012,8 +1016,7 @@
     ctx.fillStyle = color;
     ctx.fillRect(x, y, s, s);
 
-    // Subtle inner bevel for depth
-    // THEME: read bevel colors from CSS vars so they adapt to dark/bright theme
+    // Read bevel colors from CSS vars so they adapt to the active theme.
     ctx.fillStyle = getCssVar('--cell-bevel-light');
     ctx.fillRect(x, y, s, 2);
     ctx.fillRect(x, y, 2, s);
@@ -1080,7 +1083,7 @@
   }
 
   function flashColor(timerMs) {
-    // THEME: use --text-accent base color so flash reads on both dark (#fff) and bright (#000) themes
+    // Use the theme accent so the flash remains legible in either color mode.
     const base  = getCssVar('--text-accent') || '#ffffff';
     // Parse hex to RGB for alpha compositing
     let r = 255, g = 255, b = 255;
@@ -1128,19 +1131,23 @@
     }
   }
 
-  function renderPieceInPanel(ctx, type, canvasW, canvasH) {
-    if (!type || type === 0) return;
+  function renderPieceInPanel(ctx, type, panelWidth, panelHeight, panelTop = 0) {
+    if (!type) return;
 
     const cells = TETROMINOES[type][0];
     let minR = 4, maxR = 0, minC = 4, maxC = 0;
     for (const [r, c] of cells) {
-      if (r < minR) minR = r; if (r > maxR) maxR = r;
-      if (c < minC) minC = c; if (c > maxC) maxC = c;
+      if (r < minR) minR = r;
+      if (r > maxR) maxR = r;
+      if (c < minC) minC = c;
+      if (c > maxC) maxC = c;
     }
     const pieceW = (maxC - minC + 1) * PANEL_CELL_SIZE;
     const pieceH = (maxR - minR + 1) * PANEL_CELL_SIZE;
-    const offX   = Math.floor((canvasW - pieceW) / 2) - minC * PANEL_CELL_SIZE;
-    const offY   = Math.floor((canvasH - pieceH) / 2) - minR * PANEL_CELL_SIZE;
+    const offX   = Math.floor((panelWidth - pieceW) / 2) - minC * PANEL_CELL_SIZE;
+    const offY   = panelTop
+      + Math.floor((panelHeight - pieceH) / 2)
+      - minR * PANEL_CELL_SIZE;
 
     for (const [r, c] of cells) {
       drawCell(ctx, c, r, PIECE_COLORS[type], PANEL_CELL_SIZE, offX, offY);
@@ -1170,23 +1177,7 @@
     ctx.fillRect(0, 0, W, H);
 
     for (let i = 0; i < 3; i++) {
-      const type = state.next[i];
-      if (!type) continue;
-
-      const cells = TETROMINOES[type][0];
-      let minR = 4, maxR = 0, minC = 4, maxC = 0;
-      for (const [r, c] of cells) {
-        if (r < minR) minR = r; if (r > maxR) maxR = r;
-        if (c < minC) minC = c; if (c > maxC) maxC = c;
-      }
-      const pieceW = (maxC - minC + 1) * PANEL_CELL_SIZE;
-      const pieceH = (maxR - minR + 1) * PANEL_CELL_SIZE;
-      const offX   = Math.floor((W - pieceW) / 2) - minC * PANEL_CELL_SIZE;
-      const offY   = i * slotH + Math.floor((slotH - pieceH) / 2) - minR * PANEL_CELL_SIZE;
-
-      for (const [r, c] of cells) {
-        drawCell(ctx, c, r, PIECE_COLORS[type], PANEL_CELL_SIZE, offX, offY);
-      }
+      renderPieceInPanel(ctx, state.next[i], W, slotH, i * slotH);
     }
   }
 
@@ -1241,9 +1232,6 @@
   }
 
   function startGame() {
-    // Lock in the currently selected appearance before game starts.
-    state.theme = getActiveTheme();
-    state.stylePreset = getActiveStyle();
     initState();
     dom.boardWrapper.style.removeProperty('--impact-scale');
     dom.boardWrapper.style.removeProperty('--impact-shift');
@@ -1254,13 +1242,10 @@
     dom.actionTextDetail.textContent = '';
     dom.levelUpText.className = 'level-up-text';
     dom.levelUpText.textContent = '';
-    state.theme = getActiveTheme(); // re-apply after initState reset
-    state.stylePreset = getActiveStyle();
     showScreen(null);
     state.phase = 'playing';
     updateHud();
     dom.highScoreDisplay.textContent = state.highScore.toLocaleString();
-    dom.hudHighScore.textContent     = state.highScore.toLocaleString();
   }
 
   function pauseGame() {
@@ -1330,22 +1315,16 @@
     const savedStyle = loadSavedStyle();
     applyAppearance(savedTheme, savedStyle);
 
-    // THEME: seed piece colors from CSS vars on startup.
-    loadPieceColors();
-
     // Wire up appearance controls and game buttons.
     initAppearanceControls();
 
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup',   onKeyUp);
 
-    // Show start screen overlay
-    showScreen('screen-start');
-    state.phase = 'start';
-
     // Pre-initialise state so the background renders on first frame
     initState();
     state.phase = 'start';
+    showScreen('screen-start');
 
     lastTimestamp = null;
     requestAnimationFrame(gameLoop);
