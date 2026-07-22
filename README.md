@@ -1,6 +1,6 @@
 # Tetris
 
-Dark theme Tetris — built with pure HTML, CSS, and Vanilla JavaScript.
+Themeable Tetris — built with pure HTML, CSS, and Vanilla JavaScript.
 No libraries, no build tools. Open `index.html` in any modern browser and play.
 
 ## Features
@@ -19,6 +19,8 @@ No libraries, no build tools. Open `index.html` in any modern browser and play.
 - Start / Pause / Game Over screens
 - Line clear flash animation + level-up overlay
 - High score persistence (localStorage)
+- Responsive on-screen controls for touch and narrow screens
+- Keyboard-accessible menus, reduced-motion support, and live game status
 
 ## Controls
 
@@ -31,6 +33,9 @@ No libraries, no build tools. Open `index.html` in any modern browser and play.
 | Z | Rotate counter-clockwise |
 | C / Shift | Hold piece |
 | P / Esc | Pause |
+
+On screens up to 900px wide, the same actions are available through the
+on-screen controls below the board.
 
 ## How to run
 
@@ -46,12 +51,28 @@ xdg-open index.html  # Linux
 - CSS3 (dark/bright themes via CSS custom properties, animations)
 - Vanilla JavaScript (`file://`-compatible IIFE/UMD modules, no dependencies)
 
+`game-engine.js` contains pure input, spawn, persistence, and T-spin rules.
+`game-input.js` normalizes keyboard, pointer, and touch controls. `game.js` owns
+runtime state, screen transitions, and Canvas rendering. Every input method
+dispatches the same game actions.
+
+## Tests
+
+Run all unit and runtime integration tests with Node.js:
+
+```bash
+node --test
+```
+
+The suite covers game rules, standard keyboard codes, Hold locking, persisted
+value recovery, theme rendering, and visual-effect state.
+
 ## Theme System
 
 Choose one of five visual styles and a **Dark** or **Bright** color mode from the
 options screen. Both selections are persisted in `localStorage`.
 
 - All colors — background, panels, text, borders, overlays — are driven by CSS custom properties defined in `style.css` under `[data-theme="dark"]` and `[data-theme="bright"]` blocks.
-- Canvas rendering is also fully themed: `drawCell()` reads `--cell-bevel-light` and `--cell-bevel-shadow` via `getCssVar()` on every frame, so the piece bevel effect adapts correctly to both light and dark backgrounds.
+- Canvas colors are cached whenever appearance changes, so themed bevels, outlines, and ghost styling do not require repeated computed-style reads for every cell.
 - Piece colors (`--piece-i` … `--piece-l`) are loaded from CSS vars at game start and on every theme switch via `loadPieceColors()`, enabling future per-theme palette overrides without any JS changes.
 - Flash animation and action text use `--text-accent` (white in dark, black in bright) for legibility on both backgrounds.

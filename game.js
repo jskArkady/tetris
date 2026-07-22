@@ -7,8 +7,11 @@
 (function () {
   'use strict';
 
+  const GameEngine = window.TetrisGameEngine;
+  const Input = window.TetrisInput;
   const VisualEffects = window.TetrisEffects;
   const ThemeOptions = window.TetrisThemeOptions;
+  const { ACTIONS } = GameEngine;
 
   // ═══════════════════════════════════════════════════════════════
   // SECTION 1: CONSTANTS
@@ -18,6 +21,7 @@
   const COLS = 10;
   const ROWS = 22;           // 20 visible + 2 hidden rows above playfield
   const VISIBLE_ROWS = 20;
+  const HIDDEN_ROWS = ROWS - VISIBLE_ROWS;
   const CELL_SIZE = 30;      // pixels per cell on the main board canvas
 
   // Lock delay: piece locks after LOCK_DELAY ms on surface if no move.
@@ -166,11 +170,21 @@
   const HIGH_SCORE_STORAGE_KEY = 'tetris_highscore';
   const DEFAULT_STYLE = 'fluent';
 
-  const GAME_KEYS = new Set([
-    'ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' ',
-    'KeyX', 'KeyZ', 'KeyC', 'ShiftLeft', 'ShiftRight',
-    'Escape', 'KeyP', 'Enter',
+  const REPEATING_ACTIONS = new Set([
+    ACTIONS.MOVE_LEFT,
+    ACTIONS.MOVE_RIGHT,
+    ACTIONS.SOFT_DROP,
   ]);
+
+  const PIECE_NAMES = {
+    [PIECE_I]: 'I',
+    [PIECE_O]: 'O',
+    [PIECE_T]: 'T',
+    [PIECE_S]: 'S',
+    [PIECE_Z]: 'Z',
+    [PIECE_J]: 'J',
+    [PIECE_L]: 'L',
+  };
 
   // ═══════════════════════════════════════════════════════════════
   // SECTION 2: DOM REFERENCES
@@ -179,9 +193,25 @@
   let dom = {};
   let optionsReturnState = { screenId: 'screen-start', phase: 'start' };
   let themeCardsRendered = false;
+  let lastFocusedElement = null;
+  let activeScreen = null;
+  let inputController = null;
+  let renderDirty = true;
+  let prefersReducedMotion = false;
+  let canvasTheme = {
+    background: '#09111d',
+    grid: 'rgba(255, 255, 255, 0.08)',
+    bevelLight: 'rgba(255, 255, 255, 0.26)',
+    bevelShadow: 'rgba(0, 0, 0, 0.34)',
+    cellOutline: 'rgba(255, 255, 255, 0.18)',
+    ghost: 'rgba(255, 255, 255, 0.12)',
+    ghostOutline: 'rgba(255, 255, 255, 0.54)',
+    textAccent: '#ffffff',
+  };
 
   function cacheDom() {
     dom = {
+      gameContainer:     document.getElementById('game-container'),
       boardWrapper:     document.getElementById('board-wrapper'),
       boardCanvas:      document.getElementById('canvas-board'),
       holdCanvas:       document.getElementById('canvas-hold'),
@@ -194,6 +224,7 @@
       actionTextHeadline: document.getElementById('action-text-headline'),
       actionTextDetail: document.getElementById('action-text-detail'),
       levelUpText:      document.getElementById('level-up-text'),
+      gameStatus:       document.getElementById('game-status'),
       screenStart:      document.getElementById('screen-start'),
       screenOptions:    document.getElementById('screen-options'),
       screenPause:      document.getElementById('screen-pause'),
@@ -210,9 +241,11 @@
       btnStart:         document.getElementById('btn-start'),
       btnOpenOptions:   document.getElementById('btn-open-options'),
       btnOptionsBack:   document.getElementById('btn-options-back'),
+      btnResume:        document.getElementById('btn-resume'),
       btnPlayAgain:     document.getElementById('btn-play-again'),
       btnOpenOptionsGameover: document.getElementById('btn-open-options-gameover'),
       modeButtons:      document.querySelectorAll('.mode-chip'),
+      gameControlButtons: document.querySelectorAll('[data-game-action]'),
     };
     dom.boardCtx = dom.boardCanvas.getContext('2d');
     dom.holdCtx  = dom.holdCanvas.getContext('2d');
@@ -232,9 +265,11 @@
   }
 
   function normalizeStyle(style) {
-    return ThemeOptions && ThemeOptions.STYLE_OPTION_CONFIG && ThemeOptions.STYLE_OPTION_CONFIG[style]
-      ? style
-      : DEFAULT_STYLE;
+    return GameEngine.normalizeStyle(
+      style,
+      ThemeOptions && ThemeOptions.STYLE_OPTION_CONFIG,
+      DEFAULT_STYLE
+    );
   }
 
   function getActiveTheme() {
@@ -265,6 +300,23 @@
       return getComputedStyle(document.body).getPropertyValue(name).trim();
     }
     return '';
+  }
+
+  function markRenderDirty() {
+    renderDirty = true;
+  }
+
+  function loadCanvasTheme() {
+    canvasTheme = {
+      background: getCssVar('--canvas-bg') || '#09111d',
+      grid: getCssVar('--canvas-grid') || 'rgba(255, 255, 255, 0.08)',
+      bevelLight: getCssVar('--cell-bevel-light') || 'rgba(255, 255, 255, 0.26)',
+      bevelShadow: getCssVar('--cell-bevel-shadow') || 'rgba(0, 0, 0, 0.34)',
+      cellOutline: getCssVar('--cell-outline') || 'rgba(255, 255, 255, 0.18)',
+      ghost: getCssVar('--ghost-color') || 'rgba(255, 255, 255, 0.12)',
+      ghostOutline: getCssVar('--ghost-outline') || 'rgba(255, 255, 255, 0.54)',
+      textAccent: getCssVar('--text-accent') || '#ffffff',
+    };
   }
 
   function loadFromStorage(key, fallbackValue) {
@@ -361,13 +413,16 @@
 
     // Reload piece colors after the active appearance variables change.
     loadPieceColors();
+    loadCanvasTheme();
+    markRenderDirty();
 
-    if (state.effects) {
+    if (state.effects && !prefersReducedMotion) {
       VisualEffects.triggerAppearanceMorph(state.effects);
     }
   }
 
   function openOptionsScreen(screenId, phase) {
+    lastFocusedElement = document.activeElement || null;
     optionsReturnState = { screenId, phase };
     showScreen('screen-options');
     state.phase = 'options';
@@ -376,6 +431,9 @@
   function closeOptionsScreen() {
     showScreen(optionsReturnState.screenId);
     state.phase = optionsReturnState.phase;
+    if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+      lastFocusedElement.focus();
+    }
   }
 
   function initAppearanceControls() {
@@ -394,6 +452,7 @@
     dom.btnStart.addEventListener('click', () => startGame());
     dom.btnOpenOptions.addEventListener('click', () => openOptionsScreen('screen-start', 'start'));
     dom.btnOptionsBack.addEventListener('click', () => closeOptionsScreen());
+    dom.btnResume.addEventListener('click', () => resumeGame());
 
     dom.btnPlayAgain.addEventListener('click', () => startGame());
     dom.btnOpenOptionsGameover.addEventListener('click', () => {
@@ -411,7 +470,7 @@
     return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
   }
 
-  function initState() {
+  function initState(announceSpawn = true) {
     state = {
       board: buildEmptyBoard(),
       current: { type: 0, rotation: 0, x: 0, y: 0 },
@@ -438,7 +497,7 @@
       phase: 'playing',
       clearingRows:   [],
       clearAnimTimer: 0,
-      lastWasRotation: false,
+      lastAction:       'spawn',
       lastKickIndex:   0,
       actionTextTimer: 0,
       levelUpTimer:    0,
@@ -446,7 +505,7 @@
     };
 
     fillNextQueue();
-    spawnPiece(drawFromQueue());
+    spawnPiece(drawFromQueue(), announceSpawn);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -496,18 +555,17 @@
   // SECTION 7: SPAWNING & GHOST
   // ═══════════════════════════════════════════════════════════════
 
-  function spawnPiece(type) {
+  function spawnPiece(type, announce = true) {
     const spawnX = Math.floor((COLS - 4) / 2); // col 3 on 10-wide board
-    const spawnY = 0;
+    const spawnY = GameEngine.getSpawnY(ROWS, VISIBLE_ROWS);
 
     state.current        = { type, rotation: 0, x: spawnX, y: spawnY };
-    state.lastWasRotation = false;
+    state.lastAction      = 'spawn';
     state.lastKickIndex   = 0;
     state.lockTimer       = 0;
     state.lockResets      = 0;
     state.isOnSurface     = false;
     state.gravityTimer    = 0;
-    state.hold.locked     = false;
 
     updateGhost();
 
@@ -515,6 +573,7 @@
       triggerGameOver();
       return false;
     }
+    if (announce) announceGameStatus(`${PIECE_NAMES[type]} piece active.`);
     return true;
   }
 
@@ -535,7 +594,7 @@
 
     state.current.x = x + dx;
     state.current.y = y + dy;
-    state.lastWasRotation = false;
+    state.lastAction = 'move';
 
     // Lateral moves reset the lock timer (move-reset mechanic)
     if (dx !== 0 && state.isOnSurface && state.lockResets < MAX_LOCK_RESETS) {
@@ -566,7 +625,7 @@
         state.current.rotation = newRot;
         state.current.x        = nx;
         state.current.y        = ny;
-        state.lastWasRotation  = true;
+        state.lastAction       = 'rotate';
         state.lastKickIndex    = i;
 
         if (state.isOnSurface && state.lockResets < MAX_LOCK_RESETS) {
@@ -585,6 +644,7 @@
     const fromRow = state.current.y;
     const cellsDropped = state.ghostY - state.current.y;
     state.current.y = state.ghostY;
+    if (cellsDropped > 0) state.lastAction = 'hard-drop';
     state.pendingHardDrop = { fromRow, toRow: state.ghostY };
     state.score += HARD_DROP_SCORE_PER_CELL * cellsDropped;
     updateHud();
@@ -613,6 +673,9 @@
 
     const nextType = (prevHold === 0) ? drawFromQueue() : prevHold;
     spawnPiece(nextType);
+    announceGameStatus(
+      `${PIECE_NAMES[type]} piece held. ${PIECE_NAMES[nextType]} piece active.`
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -651,21 +714,24 @@
       if (state.board[r].every(cell => cell !== 0)) fullRows.push(r);
     }
 
-    if (state.pendingHardDrop) {
+    if (state.pendingHardDrop && !prefersReducedMotion) {
       VisualEffects.triggerHardDropImpact(
         state.effects,
         state.pendingHardDrop.fromRow,
         state.pendingHardDrop.toRow
       );
-      state.pendingHardDrop = null;
     }
+    state.pendingHardDrop = null;
 
     scoreForClear(fullRows.length, tSpinResult);
 
     if (fullRows.length > 0) {
       state.clearingRows   = fullRows;
-      state.clearAnimTimer = CLEAR_ANIM_DURATION;
-      VisualEffects.triggerLineClearSweep(state.effects, fullRows);
+      state.clearAnimTimer = prefersReducedMotion ? 0 : CLEAR_ANIM_DURATION;
+      if (!prefersReducedMotion) {
+        VisualEffects.triggerLineClearSweep(state.effects, fullRows);
+      }
+      announceGameStatus(`${fullRows.length} line${fullRows.length === 1 ? '' : 's'} cleared.`);
     } else {
       state.combo = -1; // break combo on no-clear
       spawnNext();
@@ -688,6 +754,7 @@
   }
 
   function spawnNext() {
+    state.hold.locked = false;
     spawnPiece(drawFromQueue());
   }
 
@@ -697,7 +764,7 @@
 
   function detectTSpin() {
     const { type, rotation, x, y } = state.current;
-    if (type !== PIECE_T || !state.lastWasRotation) return null;
+    if (type !== PIECE_T) return null;
 
     const corners = [
       [y,   x  ],  // 0: top-left
@@ -710,17 +777,12 @@
       r < 0 || r >= ROWS || c < 0 || c >= COLS || state.board[r][c] !== 0
     );
 
-    const filledCount = occupied.filter(Boolean).length;
-    if (filledCount < 3) return null;
-
-    const frontIndices = { 0:[0,1], 1:[1,3], 2:[2,3], 3:[0,2] }[rotation];
-    const frontFilled  = frontIndices.filter(i => occupied[i]).length;
-
-    if (frontFilled === 2) return { isTSpin: true, isMini: false };
-
-    if (state.lastKickIndex > 0) return { isTSpin: true, isMini: true };
-
-    return null;
+    return GameEngine.classifyTSpin({
+      occupiedCorners: occupied,
+      rotation,
+      lastAction: state.lastAction,
+      kickIndex: state.lastKickIndex,
+    });
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -732,7 +794,11 @@
     const isTSpin     = !!(tSpinResult && tSpinResult.isTSpin);
     const isMini      = !!(tSpinResult && tSpinResult.isMini);
     const isTetris    = linesCleared === 4;
-    const isB2BWorthy = isTetris || (isTSpin && !isMini && linesCleared > 0);
+    const isB2BWorthy = GameEngine.isBackToBackWorthy({
+      linesCleared,
+      isTSpin,
+      isTetris,
+    });
 
     let baseScore   = 0;
     let actionLabel = '';
@@ -808,7 +874,12 @@
   // ═══════════════════════════════════════════════════════════════
 
   function loadHighScore() {
-    return parseInt(loadFromStorage(HIGH_SCORE_STORAGE_KEY, '0'), 10);
+    const storedValue = loadFromStorage(HIGH_SCORE_STORAGE_KEY, '0');
+    const normalizedValue = GameEngine.normalizeHighScore(storedValue);
+    if (String(normalizedValue) !== String(storedValue)) {
+      saveToStorage(HIGH_SCORE_STORAGE_KEY, normalizedValue);
+    }
+    return normalizedValue;
   }
 
   function updateHighScore() {
@@ -822,78 +893,130 @@
   // SECTION 14: INPUT HANDLING
   // ═══════════════════════════════════════════════════════════════
 
-  const keys = {};
-
-  function onKeyDown(e) {
-    if (GAME_KEYS.has(e.code)) e.preventDefault();
-
-    if (keys[e.code]) return; // already held — DAS/ARR handles repeat
-    keys[e.code] = true;
-
-    const phase = state.phase;
-
-    if (phase === 'start' || phase === 'gameover') {
-      if (e.code === 'Enter') startGame();
-      return;
-    }
-    if (phase === 'paused') {
-      if (e.code === 'Escape' || e.code === 'KeyP') resumeGame();
-      return;
-    }
-    if (phase === 'options') {
-      if (e.code === 'Escape') closeOptionsScreen();
-      return;
-    }
-    if (phase !== 'playing') return;
-    if (state.clearingRows.length > 0) return; // freeze during clear anim
-
-    switch (e.code) {
-      case 'ArrowLeft':
-        state.das.left.held     = true;
-        state.das.left.dasTimer = 0;
-        state.das.left.arrTimer = 0;
-        state.das.left.active   = false;
-        movePiece(-1, 0);
-        break;
-      case 'ArrowRight':
-        state.das.right.held     = true;
-        state.das.right.dasTimer = 0;
-        state.das.right.arrTimer = 0;
-        state.das.right.active   = false;
-        movePiece(1, 0);
-        break;
-      case 'ArrowDown':
-        state.das.down.held     = true;
-        state.das.down.arrTimer = 0;
-        softDropStep();
-        break;
-      case 'ArrowUp':
-      case 'KeyX':
-        rotatePiece(1);
-        break;
-      case 'KeyZ':
-        rotatePiece(-1);
-        break;
-      case ' ':
-        hardDrop();
-        break;
-      case 'KeyC':
-      case 'ShiftLeft':
-      case 'ShiftRight':
-        holdPiece();
-        break;
-      case 'Escape':
-      case 'KeyP':
-        pauseGame();
-        break;
+  function beginRepeatingAction(action) {
+    if (action === ACTIONS.MOVE_LEFT) {
+      state.das.left.held = true;
+      state.das.left.dasTimer = 0;
+      state.das.left.arrTimer = 0;
+      state.das.left.active = false;
+      movePiece(-1, 0);
+    } else if (action === ACTIONS.MOVE_RIGHT) {
+      state.das.right.held = true;
+      state.das.right.dasTimer = 0;
+      state.das.right.arrTimer = 0;
+      state.das.right.active = false;
+      movePiece(1, 0);
+    } else if (action === ACTIONS.SOFT_DROP) {
+      state.das.down.held = true;
+      state.das.down.arrTimer = 0;
+      softDropStep();
     }
   }
 
-  function onKeyUp(e) {
-    keys[e.code] = false;
-    if (e.code === 'ArrowLeft')  { state.das.left.held  = false; state.das.left.active  = false; }
-    if (e.code === 'ArrowRight') { state.das.right.held = false; state.das.right.active = false; }
-    if (e.code === 'ArrowDown')  { state.das.down.held  = false; }
+  function endRepeatingAction(action) {
+    if (!state.das) return;
+    if (action === ACTIONS.MOVE_LEFT) {
+      state.das.left.held = false;
+      state.das.left.active = false;
+    } else if (action === ACTIONS.MOVE_RIGHT) {
+      state.das.right.held = false;
+      state.das.right.active = false;
+    } else if (action === ACTIONS.SOFT_DROP) {
+      state.das.down.held = false;
+    }
+  }
+
+  function resetInputState() {
+    if (inputController) inputController.reset();
+    if (!state.das) return;
+    state.das.left.dasTimer = 0;
+    state.das.left.arrTimer = 0;
+    state.das.right.dasTimer = 0;
+    state.das.right.arrTimer = 0;
+    state.das.down.arrTimer = 0;
+  }
+
+  function dispatchGameAction(action, startRepeat = false) {
+    const phase = state.phase;
+
+    if (phase === 'start' || phase === 'gameover') {
+      if (action === ACTIONS.START) {
+        startGame();
+        return true;
+      }
+      return false;
+    }
+    if (phase === 'paused') {
+      if (action === ACTIONS.PAUSE) {
+        resumeGame();
+        return true;
+      }
+      return false;
+    }
+    if (phase === 'options') {
+      if (action === ACTIONS.PAUSE) {
+        closeOptionsScreen();
+        return true;
+      }
+      return false;
+    }
+    if (phase !== 'playing') return false;
+
+    if (action === ACTIONS.PAUSE) {
+      pauseGame();
+      return true;
+    }
+
+    if (state.clearingRows.length > 0) return true;
+
+    if (REPEATING_ACTIONS.has(action)) {
+      if (startRepeat) beginRepeatingAction(action);
+      else if (action === ACTIONS.MOVE_LEFT) movePiece(-1, 0);
+      else if (action === ACTIONS.MOVE_RIGHT) movePiece(1, 0);
+      else softDropStep();
+      return true;
+    }
+
+    switch (action) {
+      case ACTIONS.ROTATE_CW:
+        rotatePiece(1);
+        return true;
+      case ACTIONS.ROTATE_CCW:
+        rotatePiece(-1);
+        return true;
+      case ACTIONS.HARD_DROP:
+        hardDrop();
+        return true;
+      case ACTIONS.HOLD:
+        holdPiece();
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  function trapScreenFocus(event) {
+    if (!activeScreen || typeof activeScreen.querySelectorAll !== 'function') return false;
+    const focusable = Array.from(activeScreen.querySelectorAll(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    ));
+    if (focusable.length === 0) return false;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const activeElement = document.activeElement;
+
+    if (event.shiftKey && (activeElement === first || !activeScreen.contains(activeElement))) {
+      event.preventDefault();
+      last.focus();
+      return true;
+    }
+    if (!event.shiftKey && (activeElement === last || !activeScreen.contains(activeElement))) {
+      event.preventDefault();
+      first.focus();
+      return true;
+    }
+    return false;
   }
 
   function processDasArr(dt) {
@@ -1016,14 +1139,17 @@
     ctx.fillStyle = color;
     ctx.fillRect(x, y, s, s);
 
-    // Read bevel colors from CSS vars so they adapt to the active theme.
-    ctx.fillStyle = getCssVar('--cell-bevel-light');
+    ctx.fillStyle = canvasTheme.bevelLight;
     ctx.fillRect(x, y, s, 2);
     ctx.fillRect(x, y, 2, s);
 
-    ctx.fillStyle = getCssVar('--cell-bevel-shadow');
+    ctx.fillStyle = canvasTheme.bevelShadow;
     ctx.fillRect(x + s - 2, y, 2, s);
     ctx.fillRect(x, y + s - 2, s, 2);
+
+    ctx.strokeStyle = canvasTheme.cellOutline;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, s - 1, s - 1);
   }
 
   function renderClearSweep(ctx, boardRow, visibleRow) {
@@ -1048,9 +1174,8 @@
     const W   = COLS         * CELL_SIZE;
     const H   = VISIBLE_ROWS * CELL_SIZE;
 
-    // Read theme colors fresh on every frame — ensures theme switch is instant
-    const bgColor   = getCssVar('--canvas-bg');
-    const gridColor = getCssVar('--canvas-grid');
+    const bgColor   = canvasTheme.background;
+    const gridColor = canvasTheme.grid;
 
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, W, H);
@@ -1067,24 +1192,22 @@
 
     // Locked cells (visible rows = board rows 2..21)
     for (let r = 0; r < VISIBLE_ROWS; r++) {
-      const boardRow = r + (ROWS - VISIBLE_ROWS);
+      const boardRow = r + HIDDEN_ROWS;
+      const isClearing = state.clearingRows.includes(boardRow);
       for (let c = 0; c < COLS; c++) {
         const cell = state.board[boardRow][c];
         if (cell !== 0) {
-          const isClearing = state.clearingRows.includes(boardRow);
           const color = isClearing ? flashColor(state.clearAnimTimer) : PIECE_COLORS[cell];
           drawCell(ctx, c, r, color, CELL_SIZE, 0, 0);
-          if (isClearing && c === 0) {
-            renderClearSweep(ctx, boardRow, r);
-          }
         }
       }
+      if (isClearing) renderClearSweep(ctx, boardRow, r);
     }
   }
 
   function flashColor(timerMs) {
     // Use the theme accent so the flash remains legible in either color mode.
-    const base  = getCssVar('--text-accent') || '#ffffff';
+    const base  = canvasTheme.textAccent;
     // Parse hex to RGB for alpha compositing
     let r = 255, g = 255, b = 255;
     const hex = base.replace('#', '');
@@ -1104,28 +1227,28 @@
     const ctx   = dom.boardCtx;
 
     // Ghost color from CSS variable — switches automatically with theme
-    const ghostColor = getCssVar('--ghost-color');
+    const ghostColor = canvasTheme.ghost;
 
     for (const [r, c] of cells) {
-      const visRow = r - (ROWS - VISIBLE_ROWS);
+      const visRow = r - HIDDEN_ROWS;
       if (visRow < 0 || visRow >= VISIBLE_ROWS) continue;
 
       ctx.fillStyle = ghostColor;
       ctx.fillRect(c * CELL_SIZE, visRow * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-      ctx.strokeStyle = PIECE_COLORS[type];
-      ctx.lineWidth   = 1;
-      ctx.strokeRect(c * CELL_SIZE + 0.5, visRow * CELL_SIZE + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
+      ctx.strokeStyle = canvasTheme.ghostOutline;
+      ctx.lineWidth   = 2;
+      ctx.strokeRect(c * CELL_SIZE + 1, visRow * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
     }
   }
 
   function renderCurrentPiece() {
-    if (state.phase !== 'playing') return;
+    if (state.phase !== 'playing' && state.phase !== 'paused') return;
     const { type, rotation, x, y } = state.current;
     const cells = getCells(type, rotation, x, y);
     const ctx   = dom.boardCtx;
 
     for (const [r, c] of cells) {
-      const visRow = r - (ROWS - VISIBLE_ROWS);
+      const visRow = r - HIDDEN_ROWS;
       if (visRow < 0 || visRow >= VISIBLE_ROWS) continue;
       drawCell(ctx, c, visRow, PIECE_COLORS[type], CELL_SIZE, 0, 0);
     }
@@ -1159,7 +1282,7 @@
     const W   = dom.holdCanvas.width;
     const H   = dom.holdCanvas.height;
 
-    ctx.fillStyle = getCssVar('--canvas-bg');
+    ctx.fillStyle = canvasTheme.background;
     ctx.fillRect(0, 0, W, H);
 
     if (state.hold.locked) ctx.globalAlpha = 0.45;
@@ -1173,7 +1296,7 @@
     const H      = dom.nextCanvas.height;
     const slotH  = Math.floor(H / 3);
 
-    ctx.fillStyle = getCssVar('--canvas-bg');
+    ctx.fillStyle = canvasTheme.background;
     ctx.fillRect(0, 0, W, H);
 
     for (let i = 0; i < 3; i++) {
@@ -1186,6 +1309,10 @@
     dom.hudLevel.textContent     = state.level;
     dom.hudLines.textContent     = state.lines;
     dom.hudHighScore.textContent = state.highScore.toLocaleString();
+  }
+
+  function announceGameStatus(message) {
+    if (dom.gameStatus) dom.gameStatus.textContent = message;
   }
 
   function applyBoardEffectVars() {
@@ -1212,12 +1339,17 @@
     applyBoardEffectVars();
     syncEffectClasses();
     renderBoard();
-    if (state.phase === 'playing' || state.phase === 'paused') {
+    if (GameEngine.shouldRenderActivePiece(state.phase, state.clearingRows.length)) {
       renderGhost();
       renderCurrentPiece();
     }
     renderHold();
     renderNext();
+  }
+
+  function hasActiveVisualEffects() {
+    if (!state.effects) return false;
+    return Object.values(state.effects).some(Boolean);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -1227,8 +1359,24 @@
   function showScreen(id) {
     [dom.screenStart, dom.screenOptions, dom.screenPause, dom.screenGameover].forEach(el => {
       el.classList.remove('screen--active');
+      el.setAttribute('aria-hidden', 'true');
     });
-    if (id) document.getElementById(id).classList.add('screen--active');
+    activeScreen = id ? document.getElementById(id) : null;
+    if (activeScreen) {
+      activeScreen.classList.add('screen--active');
+      activeScreen.setAttribute('aria-hidden', 'false');
+    }
+    if (dom.gameContainer) {
+      dom.gameContainer.inert = !!activeScreen;
+      dom.gameContainer.setAttribute('aria-hidden', String(!!activeScreen));
+    }
+    resetInputState();
+    markRenderDirty();
+
+    if (activeScreen && typeof activeScreen.querySelector === 'function') {
+      const focusTarget = activeScreen.querySelector('button, [tabindex]:not([tabindex="-1"])');
+      if (focusTarget && typeof focusTarget.focus === 'function') focusTarget.focus();
+    }
   }
 
   function startGame() {
@@ -1244,6 +1392,7 @@
     dom.levelUpText.textContent = '';
     showScreen(null);
     state.phase = 'playing';
+    announceGameStatus('Game started.');
     updateHud();
     dom.highScoreDisplay.textContent = state.highScore.toLocaleString();
   }
@@ -1252,6 +1401,7 @@
     if (state.phase !== 'playing') return;
     state.phase = 'paused';
     showScreen('screen-pause');
+    announceGameStatus('Game paused.');
   }
 
   function resumeGame() {
@@ -1259,6 +1409,7 @@
     state.phase   = 'playing';
     lastTimestamp = null; // prevent a large dt spike after unpause
     showScreen(null);
+    announceGameStatus('Game resumed.');
   }
 
   function triggerGameOver() {
@@ -1267,6 +1418,7 @@
     dom.finalScore.textContent       = state.score.toLocaleString();
     dom.highScoreDisplay.textContent = state.highScore.toLocaleString();
     showScreen('screen-gameover');
+    announceGameStatus(`Game over. Score ${state.score}.`);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -1285,7 +1437,10 @@
     lastTimestamp = timestamp;
 
     update(dt);
-    render();
+    if (state.phase === 'playing' || renderDirty || hasActiveVisualEffects()) {
+      render();
+      renderDirty = false;
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -1301,12 +1456,36 @@
     // Hold (120x120) and next (120x360) sizes are set in HTML attributes.
   }
 
+  function handleVisibilityChange() {
+    resetInputState();
+    if (document.hidden && state.phase === 'playing') pauseGame();
+  }
+
+  function getGameSnapshot() {
+    return {
+      phase: state.phase,
+      current: { ...state.current },
+      ghostY: state.ghostY,
+      hold: { ...state.hold },
+      next: state.next.slice(0, 3),
+      score: state.score,
+      highScore: state.highScore,
+      level: state.level,
+      lines: state.lines,
+      clearingRows: state.clearingRows.slice(),
+      lastAction: state.lastAction,
+      lastKickIndex: state.lastKickIndex,
+    };
+  }
+
   // ═══════════════════════════════════════════════════════════════
   // SECTION 20: INITIALIZATION
   // ═══════════════════════════════════════════════════════════════
 
   function init() {
     cacheDom();
+    prefersReducedMotion = !!(window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     applyOptionsCopy();
     resizeCanvases();
 
@@ -1315,20 +1494,38 @@
     const savedStyle = loadSavedStyle();
     applyAppearance(savedTheme, savedStyle);
 
-    // Wire up appearance controls and game buttons.
+    // Wire up appearance controls and normalize every input method through one adapter.
     initAppearanceControls();
+    inputController = Input.createInputController({
+      actions: ACTIONS,
+      actionForCode: GameEngine.actionForCode,
+      controls: dom.gameControlButtons,
+      dispatchAction: dispatchGameAction,
+      document,
+      onTab: trapScreenFocus,
+      releaseAction: endRepeatingAction,
+      repeatingActions: REPEATING_ACTIONS,
+      window,
+    });
+    inputController.bind();
 
-    document.addEventListener('keydown', onKeyDown);
-    document.addEventListener('keyup',   onKeyUp);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Pre-initialise state so the background renders on first frame
-    initState();
+    initState(false);
     state.phase = 'start';
     showScreen('screen-start');
 
     lastTimestamp = null;
     requestAnimationFrame(gameLoop);
   }
+
+  window.TetrisGameRuntime = Object.freeze({
+    ACTIONS,
+    dispatchAction: dispatchGameAction,
+    getSnapshot: getGameSnapshot,
+    start: startGame,
+  });
 
   document.addEventListener('DOMContentLoaded', init);
 

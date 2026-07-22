@@ -15,8 +15,10 @@ body[data-theme="dark"] {
   --canvas-grid: rgba(255, 255, 255, 0.08);
   --canvas-border: rgba(255, 255, 255, 0.16);
   --ghost-color: rgba(255, 255, 255, 0.12);
+  --ghost-outline: rgba(255, 255, 255, 0.58);
   --cell-bevel-light: rgba(255, 255, 255, 0.26);
   --cell-bevel-shadow: rgba(0, 0, 0, 0.34);
+  --cell-outline: rgba(255, 255, 255, 0.2);
   --button-secondary-bg: rgba(255, 255, 255, 0.05);
   --chip-bg: rgba(255, 255, 255, 0.04);
   --chip-text: var(--text-primary);
@@ -41,8 +43,10 @@ body[data-theme="bright"] {
   --canvas-grid: rgba(62, 93, 129, 0.09);
   --canvas-border: rgba(62, 93, 129, 0.18);
   --ghost-color: rgba(17, 33, 51, 0.08);
+  --ghost-outline: rgba(17, 33, 51, 0.72);
   --cell-bevel-light: rgba(255, 255, 255, 0.74);
   --cell-bevel-shadow: rgba(41, 70, 102, 0.14);
+  --cell-outline: rgba(17, 33, 51, 0.68);
   --button-secondary-bg: rgba(255, 255, 255, 0.44);
   --chip-bg: rgba(255, 255, 255, 0.5);
   --chip-text: var(--text-primary);
@@ -146,9 +150,9 @@ body[data-theme="bright"][data-style="fluent"] {
   --bg-orb-a: rgba(86, 203, 255, 0.2);
   --bg-orb-b: rgba(99, 123, 255, 0.16);
   --bg-orb-c: rgba(86, 230, 187, 0.16);
-  --button-primary-start: #149eff;
-  --button-primary-end: #65dbff;
-  --button-primary-text: #f7fbff;
+  --button-primary-start: #005a9e;
+  --button-primary-end: #0067b8;
+  --button-primary-text: #ffffff;
   --accent-ring: rgba(20, 158, 255, 0.18);
   --board-glow: rgba(93, 174, 255, 0.18);
   --piece-i: #1ddbff;
@@ -186,9 +190,9 @@ body[data-theme="bright"][data-style="material"] {
   --bg-orb-a: rgba(179, 117, 255, 0.18);
   --bg-orb-b: rgba(255, 108, 153, 0.16);
   --bg-orb-c: rgba(91, 194, 255, 0.14);
-  --button-primary-start: #7f57ff;
-  --button-primary-end: #ff6d98;
-  --button-primary-text: #fff8ff;
+  --button-primary-start: #5e35b1;
+  --button-primary-end: #ad1457;
+  --button-primary-text: #ffffff;
   --accent-ring: rgba(127, 87, 255, 0.18);
   --board-glow: rgba(149, 100, 255, 0.18);
   --piece-i: #18d6ff;
@@ -328,8 +332,8 @@ body[data-theme="bright"][data-style="atlassian"] {
   --bg-orb-a: rgba(73, 138, 255, 0.18);
   --bg-orb-b: rgba(90, 201, 255, 0.14);
   --bg-orb-c: rgba(111, 255, 174, 0.1);
-  --button-primary-start: #1f6feb;
-  --button-primary-end: #6aa9ff;
+  --button-primary-start: #0c4a9e;
+  --button-primary-end: #0755b5;
   --button-primary-text: #ffffff;
   --accent-ring: rgba(31, 111, 235, 0.18);
   --board-glow: rgba(72, 125, 219, 0.14);
@@ -535,6 +539,11 @@ body::after {
 
 .screen__btn:active {
   transform: translateY(0);
+}
+
+button:focus-visible {
+  outline: 3px solid var(--text-accent);
+  outline-offset: 3px;
 }
 
 .screen__btn--secondary {
@@ -991,6 +1000,59 @@ body[data-theme="bright"] .preset-card[data-style-value="atlassian"] {
   overflow: visible;
 }
 
+.mobile-controls {
+  display: none;
+  width: min(100%, 420px);
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-panel);
+  background: var(--surface-2);
+  box-shadow: inset 0 1px 0 var(--surface-highlight);
+  touch-action: none;
+}
+
+.mobile-controls__row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.mobile-controls__row + .mobile-controls__row {
+  margin-top: 8px;
+}
+
+.control-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  min-height: 48px;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--button-secondary-bg);
+  color: var(--text-primary);
+  box-shadow: inset 0 1px 0 var(--surface-highlight);
+  font: 800 0.88rem/1 var(--font-body);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+}
+
+.control-btn:active {
+  transform: scale(0.96);
+}
+
+.control-btn--primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--button-primary-start), var(--button-primary-end));
+  color: var(--button-primary-text);
+}
+
+.control-btn--wide {
+  flex: 1;
+}
+
 .game-container::before {
   content: "";
   position: absolute;
@@ -1111,6 +1173,7 @@ canvas#canvas-board {
   width: calc(var(--cell-size) * 10);
   max-width: 100%;
   height: auto;
+  margin: 0 auto;
   aspect-ratio: 1 / 2;
   border: 1px solid var(--canvas-border);
   border-radius: 16px;
@@ -1300,6 +1363,7 @@ body.is-theme-morphing .board-wrapper {
 
 @media (max-width: 900px) {
   body {
+    align-items: flex-start;
     padding: 16px 12px;
     overflow-y: auto;
   }
@@ -1312,6 +1376,23 @@ body.is-theme-morphing .board-wrapper {
     flex-direction: column;
     align-items: center;
     width: min(100%, 560px);
+  }
+
+  .board-wrapper {
+    order: 1;
+  }
+
+  .mobile-controls {
+    display: block;
+    order: 2;
+  }
+
+  .panel--left {
+    order: 3;
+  }
+
+  .panel--right {
+    order: 4;
   }
 
   .panel {
@@ -1331,7 +1412,7 @@ body.is-theme-morphing .board-wrapper {
 
 @media (max-width: 600px) {
   body {
-    --cell-size: min(8.4vw, 28px);
+    --cell-size: min(8.4vw, 3.2dvh, 28px);
     align-items: flex-start;
   }
 
@@ -1356,6 +1437,11 @@ body.is-theme-morphing .board-wrapper {
     flex-direction: column;
   }
 
+  .panel__section--stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .preset-grid {
     grid-template-columns: 1fr;
   }
@@ -1376,6 +1462,16 @@ body.is-theme-morphing .board-wrapper {
     padding: 12px;
   }
 
+  .mobile-controls {
+    padding: 10px;
+  }
+
+  .control-btn {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.55rem;
+  }
+
   canvas#canvas-board {
     width: min(100%, calc(var(--cell-size) * 10));
   }
@@ -1392,5 +1488,24 @@ body.is-theme-morphing .board-wrapper {
 
   .level-up-text {
     font-size: 0.84rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .board-wrapper,
+  .mode-chip:hover,
+  .preset-card:hover,
+  .screen__btn:hover,
+  .control-btn:active {
+    transform: none !important;
   }
 }

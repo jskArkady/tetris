@@ -9,10 +9,10 @@
 <body>
 
   <!-- Overlay screens (position:fixed, toggled with .screen--active) -->
-  <div id="screen-start" class="screen screen--active">
+  <div id="screen-start" class="screen screen--active" role="dialog" aria-modal="true" aria-labelledby="start-title" aria-hidden="false">
     <div class="screen__content">
       <p class="menu-kicker">Modern Arcade</p>
-      <h1 class="screen__title">TETRIS</h1>
+      <h1 id="start-title" class="screen__title">TETRIS</h1>
       <p id="menu-appearance-summary" class="menu-summary"></p>
 
       <div class="screen__actions screen__actions--stack">
@@ -34,10 +34,10 @@
     </div>
   </div>
 
-  <div id="screen-options" class="screen">
+  <div id="screen-options" class="screen" role="dialog" aria-modal="true" aria-labelledby="options-title" aria-hidden="true">
     <div class="screen__content screen__content--options">
       <p class="menu-kicker">Appearance Settings</p>
-      <h2 class="screen__title">OPTIONS</h2>
+      <h2 id="options-title" class="screen__title">OPTIONS</h2>
       <p id="options-subtitle" class="screen__subtitle"></p>
 
       <section class="settings-block">
@@ -66,16 +66,19 @@
     </div>
   </div>
 
-  <div id="screen-pause" class="screen">
+  <div id="screen-pause" class="screen" role="dialog" aria-modal="true" aria-labelledby="pause-title" aria-hidden="true">
     <div class="screen__content">
-      <h2 class="screen__title">PAUSED</h2>
+      <h2 id="pause-title" class="screen__title">PAUSED</h2>
       <p class="screen__subtitle">Press <kbd>Esc</kbd> to Resume</p>
+      <div class="screen__actions">
+        <button id="btn-resume" class="screen__btn">RESUME</button>
+      </div>
     </div>
   </div>
 
-  <div id="screen-gameover" class="screen">
+  <div id="screen-gameover" class="screen" role="dialog" aria-modal="true" aria-labelledby="gameover-title" aria-hidden="true">
     <div class="screen__content">
-      <h2 class="screen__title">GAME OVER</h2>
+      <h2 id="gameover-title" class="screen__title">GAME OVER</h2>
       <p class="screen__final-score">Score: <span id="final-score">0</span></p>
       <p class="screen__high-score">Best: <span id="high-score-display">0</span></p>
       <div class="screen__actions">
@@ -87,13 +90,21 @@
   </div>
 
   <!-- Main game layout -->
-  <main id="game-container" class="game-container">
+  <p id="game-instructions" class="visually-hidden">
+    Use arrow keys to move, X or Up to rotate clockwise, Z to rotate counter-clockwise,
+    Space to hard drop, C or Shift to hold, and Escape to pause.
+  </p>
+  <p id="game-status" class="visually-hidden" aria-live="polite"></p>
+
+  <main id="game-container" class="game-container" aria-describedby="game-instructions" aria-hidden="true" inert>
 
     <!-- Left panel: Hold + Stats -->
     <aside class="panel panel--left">
       <div class="panel__section">
         <h3 class="panel__label">HOLD</h3>
-        <canvas id="canvas-hold" width="120" height="120"></canvas>
+        <canvas id="canvas-hold" width="120" height="120" role="img" aria-label="Held piece preview">
+          Held piece preview.
+        </canvas>
       </div>
       <div class="panel__section panel__section--stats">
         <div class="stat">
@@ -117,7 +128,9 @@
 
     <!-- Center: Main board -->
     <div id="board-wrapper" class="board-wrapper">
-      <canvas id="canvas-board"></canvas>
+      <canvas id="canvas-board" role="img" aria-label="Tetris game board">
+        Tetris game board. Current game updates are announced separately.
+      </canvas>
       <div id="action-text" class="action-text" aria-live="polite">
         <span id="action-text-headline" class="action-text__headline"></span>
         <span id="action-text-detail" class="action-text__detail"></span>
@@ -125,16 +138,35 @@
       <div id="level-up-text" class="level-up-text" aria-live="polite"></div>
     </div>
 
+    <section class="mobile-controls" aria-label="Game controls">
+      <div class="mobile-controls__row mobile-controls__row--movement">
+        <button type="button" class="control-btn" data-game-action="rotate-ccw" aria-label="Rotate counter-clockwise">↶</button>
+        <button type="button" class="control-btn" data-game-action="move-left" aria-label="Move left">←</button>
+        <button type="button" class="control-btn" data-game-action="soft-drop" aria-label="Soft drop">↓</button>
+        <button type="button" class="control-btn" data-game-action="move-right" aria-label="Move right">→</button>
+        <button type="button" class="control-btn" data-game-action="rotate-cw" aria-label="Rotate clockwise">↷</button>
+      </div>
+      <div class="mobile-controls__row">
+        <button type="button" class="control-btn control-btn--wide" data-game-action="hold">Hold</button>
+        <button type="button" class="control-btn control-btn--primary control-btn--wide" data-game-action="hard-drop">Drop</button>
+        <button type="button" class="control-btn control-btn--wide" data-game-action="pause">Pause</button>
+      </div>
+    </section>
+
     <!-- Right panel: Next queue -->
     <aside class="panel panel--right">
       <div class="panel__section">
         <h3 class="panel__label">NEXT</h3>
-        <canvas id="canvas-next" width="120" height="360"></canvas>
+        <canvas id="canvas-next" width="120" height="360" role="img" aria-label="Next three pieces preview">
+          Next three pieces preview.
+        </canvas>
       </div>
     </aside>
 
   </main>
 
+  <script src="game-engine.js"></script>
+  <script src="game-input.js"></script>
   <script src="theme-options.js"></script>
   <script src="effects.js"></script>
   <script src="game.js"></script>

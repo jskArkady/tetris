@@ -146,6 +146,8 @@ test('mobile overlay styles bound the screen content and allow vertical scrollin
 
 test('mode toggles update selection without re-rendering the preset grid', () => {
   const vm = require('node:vm');
+  const engine = require('../game-engine.js');
+  const input = require('../game-input.js');
   const effects = require('../effects.js');
 
   const modeButtons = [createButton('dark'), createButton('bright')];
@@ -164,6 +166,7 @@ test('mode toggles update selection without re-rendering the preset grid', () =>
     'action-text-headline',
     'action-text-detail',
     'level-up-text',
+    'game-status',
     'screen-start',
     'screen-options',
     'screen-pause',
@@ -180,6 +183,7 @@ test('mode toggles update selection without re-rendering the preset grid', () =>
     'btn-start',
     'btn-open-options',
     'btn-options-back',
+    'btn-resume',
     'btn-play-again',
     'btn-open-options-gameover',
   ];
@@ -216,6 +220,8 @@ test('mode toggles update selection without re-rendering the preset grid', () =>
     setTimeout,
     clearTimeout,
     TetrisEffects: effects,
+    TetrisGameEngine: engine,
+    TetrisInput: input,
     TetrisThemeOptions: themeOptions,
   };
   context.window = context;
@@ -229,6 +235,8 @@ test('mode toggles update selection without re-rendering the preset grid', () =>
   context.window.setTimeout = setTimeout;
   context.window.clearTimeout = clearTimeout;
   context.window.TetrisEffects = effects;
+  context.window.TetrisGameEngine = engine;
+  context.window.TetrisInput = input;
   context.window.TetrisThemeOptions = themeOptions;
 
   const gameJs = fs.readFileSync(path.join(__dirname, '..', 'game.js'), 'utf8');
