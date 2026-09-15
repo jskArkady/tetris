@@ -78,8 +78,8 @@ test('on-screen controls dispatch the same hard-drop action', () => {
 
   const left = controls.find(button => button.dataset.gameAction === engine.ACTIONS.MOVE_LEFT);
   const beforeMove = context.TetrisGameRuntime.getSnapshot().current.x;
-  left.dispatchEvent({ type: 'pointerdown', target: left, preventDefault() {} });
-  left.dispatchEvent({ type: 'pointerup', target: left, preventDefault() {} });
+  left.dispatchEvent({ type: 'pointerdown', target: left, pointerId: 1, preventDefault() {} });
+  left.dispatchEvent({ type: 'pointerup', target: left, pointerId: 1, preventDefault() {} });
   left.click();
   assert.equal(context.TetrisGameRuntime.getSnapshot().current.x, beforeMove - 1);
 
@@ -88,7 +88,127 @@ test('on-screen controls dispatch the same hard-drop action', () => {
   assert.ok(context.TetrisGameRuntime.getSnapshot().score > 0);
 });
 
-function createRuntime(seed = {}) {
+test('gravity and lock delay advance through animation frames', () => {
+  const runtime = startRuntime();
+  const game = runtime.context.TetrisGameRuntime;
+  runtime.advance(990);
+  assert.equal(game.getSnapshot().current.y, 1);
+  runtime.advance(10);
+  assert.equal(game.getSnapshot().current.y, 2);
+
+  while (game.getSnapshot().current.y < game.getSnapshot().ghostY) {
+    game.dispatchAction(engine.ACTIONS.SOFT_DROP);
+  }
+  runtime.advance(490);
+  assert.equal(game.getSnapshot().current.y, game.getSnapshot().ghostY);
+  runtime.advance(10);
+  assert.equal(game.getSnapshot().current.y, 1);
+  runtime.advance(10);
+  assert.equal(game.getSnapshot().current.y, 1);
+});
+
+for (const source of ['keyboard', 'pointer']) {
+  test(`${source} movement pressed during a clear resumes on the next piece`, () => {
+    const runtime = startRuntime();
+    const game = runtime.context.TetrisGameRuntime;
+    clearBottomRow(runtime);
+    const lockedPiece = game.getSnapshot().current;
+    runtime.pressLeft(source);
+    runtime.advance(290);
+    assert.deepEqual(game.getSnapshot().current, lockedPiece);
+    assert.equal(game.getSnapshot().clearingRows.length, 1);
+    runtime.advance(10);
+    assert.equal(game.getSnapshot().clearingRows.length, 0);
+    assert.equal(game.getSnapshot().current.y, 1);
+    const spawnX = game.getSnapshot().current.x;
+    runtime.advance(210);
+    assert.ok(game.getSnapshot().current.x < spawnX);
+    runtime.releaseLeft(source);
+    const releasedX = game.getSnapshot().current.x;
+    runtime.advance(250);
+    assert.equal(game.getSnapshot().current.x, releasedX);
+  });
+
+  test(`${source} movement released during a clear does not move the next piece`, () => {
+    const runtime = startRuntime();
+    clearBottomRow(runtime);
+    runtime.pressLeft(source);
+    runtime.advance(100);
+    runtime.releaseLeft(source);
+    runtime.advance(200);
+    const spawnX = runtime.context.TetrisGameRuntime.getSnapshot().current.x;
+    runtime.advance(300);
+    assert.equal(runtime.context.TetrisGameRuntime.getSnapshot().current.x, spawnX);
+  });
+}
+
+test('hiding the document pauses gravity and releases held movement', () => {
+  const runtime = startRuntime();
+  runtime.pressLeft('keyboard');
+  runtime.context.document.hidden = true;
+  runtime.documentListeners.visibilitychange[0]();
+  const paused = runtime.context.TetrisGameRuntime.getSnapshot();
+  assert.equal(paused.phase, 'paused');
+  runtime.advance(2000);
+  assert.deepEqual(runtime.context.TetrisGameRuntime.getSnapshot().current, paused.current);
+  runtime.context.document.hidden = false;
+  runtime.documentListeners.visibilitychange[0]();
+  runtime.context.TetrisGameRuntime.dispatchAction(engine.ACTIONS.PAUSE);
+  runtime.advance(0);
+  runtime.advance(500);
+  assert.deepEqual(runtime.context.TetrisGameRuntime.getSnapshot().current, paused.current);
+});
+
+for (const releaseDuringClear of [false, true]) {
+  test(`soft drop ${releaseDuringClear ? 'released' : 'held'} during a clear respects its input state`, () => {
+    const runtime = startRuntime();
+    const game = runtime.context.TetrisGameRuntime;
+    clearBottomRow(runtime);
+    const before = game.getSnapshot();
+    const event = { code: 'ArrowDown', target: null, preventDefault() {} };
+    runtime.documentListeners.keydown[0](event);
+    runtime.advance(100);
+    assert.deepEqual(game.getSnapshot().current, before.current);
+    assert.equal(game.getSnapshot().score, before.score);
+    if (releaseDuringClear) runtime.documentListeners.keyup[0](event);
+    runtime.advance(200);
+    const spawned = game.getSnapshot();
+    runtime.advance(100);
+    const after = game.getSnapshot();
+    if (releaseDuringClear) {
+      assert.deepEqual(after.current, spawned.current);
+      assert.equal(after.score, spawned.score);
+    } else {
+      assert.ok(after.current.y > spawned.current.y);
+      assert.equal(after.score - spawned.score, after.current.y - spawned.current.y);
+    }
+  });
+}
+
+function startRuntime() {
+  const runtime = createRuntime({}, () => 0);
+  runtime.documentListeners.DOMContentLoaded[0]();
+  runtime.context.TetrisGameRuntime.start();
+  runtime.advance(0);
+  return runtime;
+}
+
+function clearBottomRow(runtime) {
+  const game = runtime.context.TetrisGameRuntime;
+  // A deterministic bag starts I, L, J. Their bottom edges fill 4 + 3 + 3 cells.
+  for (const [type, x] of [[1, 0], [7, 4], [6, 7]]) {
+    assert.equal(game.getSnapshot().current.type, type);
+    const distance = x - game.getSnapshot().current.x;
+    for (let step = 0; step < Math.abs(distance); step++) {
+      game.dispatchAction(distance < 0 ? engine.ACTIONS.MOVE_LEFT : engine.ACTIONS.MOVE_RIGHT);
+    }
+    game.dispatchAction(engine.ACTIONS.HARD_DROP);
+  }
+  assert.equal(game.getSnapshot().lines, 1);
+  assert.equal(game.getSnapshot().clearingRows.length, 1);
+}
+
+function createRuntime(seed = {}, random = Math.random) {
   const elementIds = [
     'game-container',
     'board-wrapper',
@@ -175,12 +295,17 @@ function createRuntime(seed = {}) {
     getItem(key) { return storage.has(key) ? storage.get(key) : null; },
     setItem(key, value) { storage.set(String(key), String(value)); },
   };
+  let timestamp = 0;
+  let nextFrame;
+  const runtimeMath = Object.create(Math);
+  runtimeMath.random = random;
   const context = {
     window: null,
     document,
     localStorage,
     getComputedStyle: () => ({ getPropertyValue: () => '' }),
-    requestAnimationFrame: () => 1,
+    Math: runtimeMath,
+    requestAnimationFrame(callback) { nextFrame = callback; return 1; },
     cancelAnimationFrame() {},
     setTimeout,
     clearTimeout,
@@ -196,7 +321,38 @@ function createRuntime(seed = {}) {
   const source = fs.readFileSync(path.join(__dirname, '..', 'game.js'), 'utf8');
   vm.runInNewContext(source, context, { filename: 'game.js' });
 
-  return { context, controls, documentListeners, elements, localStorage };
+  function advance(duration) {
+    let remaining = duration;
+    do {
+      const dt = Math.min(10, remaining);
+      timestamp += dt;
+      const callback = nextFrame;
+      nextFrame = null;
+      assert.equal(typeof callback, 'function', 'game loop must schedule its next frame');
+      callback(timestamp);
+      remaining -= dt;
+    } while (remaining > 0);
+  }
+
+  function leftEvent(source, pressed) {
+    if (source === 'keyboard') {
+      const type = pressed ? 'keydown' : 'keyup';
+      documentListeners[type][0]({ code: 'ArrowLeft', target: null, preventDefault() {} });
+    } else {
+      const button = controls.find(control => control.dataset.gameAction === engine.ACTIONS.MOVE_LEFT);
+      const type = pressed ? 'pointerdown' : 'pointerup';
+      const event = { type, target: button, pointerId: 1, preventDefault() {} };
+      button.dispatchEvent(event);
+      // Pointer events bubble to the document after the target handles them.
+      (documentListeners[type] || []).forEach(handler => handler(event));
+    }
+  }
+
+  return {
+    context, controls, documentListeners, elements, localStorage, advance,
+    pressLeft: source => leftEvent(source, true),
+    releaseLeft: source => leftEvent(source, false),
+  };
 }
 
 function attachCanvas(canvas, width, height) {

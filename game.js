@@ -893,23 +893,23 @@
   // SECTION 14: INPUT HANDLING
   // ═══════════════════════════════════════════════════════════════
 
-  function beginRepeatingAction(action) {
+  function beginRepeatingAction(action, moveImmediately = true) {
     if (action === ACTIONS.MOVE_LEFT) {
       state.das.left.held = true;
       state.das.left.dasTimer = 0;
       state.das.left.arrTimer = 0;
       state.das.left.active = false;
-      movePiece(-1, 0);
+      if (moveImmediately) movePiece(-1, 0);
     } else if (action === ACTIONS.MOVE_RIGHT) {
       state.das.right.held = true;
       state.das.right.dasTimer = 0;
       state.das.right.arrTimer = 0;
       state.das.right.active = false;
-      movePiece(1, 0);
+      if (moveImmediately) movePiece(1, 0);
     } else if (action === ACTIONS.SOFT_DROP) {
       state.das.down.held = true;
       state.das.down.arrTimer = 0;
-      softDropStep();
+      if (moveImmediately) softDropStep();
     }
   }
 
@@ -967,7 +967,12 @@
       return true;
     }
 
-    if (state.clearingRows.length > 0) return true;
+    if (state.clearingRows.length > 0) {
+      // Preserve held input without moving the already locked piece. Repeats
+      // resume after the clear; releasing during the animation still cancels.
+      if (startRepeat && REPEATING_ACTIONS.has(action)) beginRepeatingAction(action, false);
+      return true;
+    }
 
     if (REPEATING_ACTIONS.has(action)) {
       if (startRepeat) beginRepeatingAction(action);

@@ -19,7 +19,7 @@
     window,
   }) {
     const keys = {};
-    const pointerHeldActions = new Set();
+    const heldPointers = new Map();
     const repeating = new Set(repeatingActions);
     const controlButtons = Array.from(controls || []);
 
@@ -35,7 +35,8 @@
     }
 
     function releaseIfUnused(action) {
-      if (!action || pointerHeldActions.has(action) || isKeyboardActionHeld(action)) return;
+      const pointerHeld = Array.from(heldPointers.values()).some(pointer => pointer.action === action);
+      if (!action || pointerHeld || isKeyboardActionHeld(action)) return;
       releaseAction(action);
     }
 
@@ -61,18 +62,24 @@
       releaseIfUnused(action);
     }
 
-    function endPointerAction(action) {
-      pointerHeldActions.delete(action);
-      releaseIfUnused(action);
-    }
+    function endPointerAction(event) {
+      const pointer = heldPointers.get(event.pointerId);
+      if (!pointer) return;
+      heldPointers.delete(event.pointerId);
+      releaseIfUnused(pointer.action);
 
-    function releasePointerActions() {
-      Array.from(pointerHeldActions).forEach(endPointerAction);
-      if (window && typeof window.setTimeout === 'function') {
-        window.setTimeout(() => {
-          controlButtons.forEach(button => { button.dataset.pointerTriggered = 'false'; });
-        }, 0);
+      function clearPointerTrigger() {
+        if (!Array.from(heldPointers.values()).some(held => held.button === pointer.button)) {
+          pointer.button.dataset.pointerTriggered = 'false';
+        }
       }
+      // Keep the flag through the click that follows pointerup, but do not
+      // change another finger's button or suppress a later keyboard click.
+      if (event.type === 'pointerup') {
+        if (window && typeof window.setTimeout === 'function') {
+          window.setTimeout(clearPointerTrigger, 0);
+        }
+      } else clearPointerTrigger();
     }
 
     function bindControl(button) {
@@ -85,14 +92,10 @@
           const handled = dispatchAction(action, true);
           if (!handled) return;
           button.dataset.pointerTriggered = 'true';
-          pointerHeldActions.add(action);
+          heldPointers.set(event.pointerId, { action, button });
         });
-        button.addEventListener('pointerup', () => endPointerAction(action));
-        ['pointercancel', 'pointerleave'].forEach(type => {
-          button.addEventListener(type, () => {
-            endPointerAction(action);
-            button.dataset.pointerTriggered = 'false';
-          });
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach(type => {
+          button.addEventListener(type, endPointerAction);
         });
       }
 
@@ -108,15 +111,16 @@
 
     function reset() {
       Object.keys(keys).forEach(code => { keys[code] = false; });
-      pointerHeldActions.clear();
+      heldPointers.clear();
+      controlButtons.forEach(button => { button.dataset.pointerTriggered = 'false'; });
       repeating.forEach(releaseAction);
     }
 
     function bind() {
       document.addEventListener('keydown', onKeyDown);
       document.addEventListener('keyup', onKeyUp);
-      document.addEventListener('pointerup', releasePointerActions);
-      document.addEventListener('pointercancel', releasePointerActions);
+      document.addEventListener('pointerup', endPointerAction);
+      document.addEventListener('pointercancel', endPointerAction);
       controlButtons.forEach(bindControl);
 
       if (window && typeof window.addEventListener === 'function') {
