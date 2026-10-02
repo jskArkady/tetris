@@ -17,7 +17,9 @@ No libraries, no build tools. Open `index.html` in any modern browser and play.
 - Lock delay (500ms) with up to 15 move resets
 - DAS / ARR smooth left-right movement
 - Start / Pause / Game Over screens
-- Line clear flash animation + level-up overlay
+- Line clear flash animation + level-up rewards
+- Impact Arcade enamel blocks, hard-drop contact trails, and bounded clear shards
+- Score and combo rewards beside the board, with reduced-motion support
 - High score persistence (localStorage)
 - Responsive on-screen controls for touch and narrow screens
 - Keyboard-accessible menus, reduced-motion support, and live game status
@@ -69,8 +71,16 @@ value recovery, theme rendering, and visual-effect state.
 
 ## Theme System
 
-Choose one of five visual styles and a **Dark** or **Bright** color mode from the
+Choose one of six visual styles and a **Dark** or **Bright** color mode from the
 options screen. Both selections are persisted in `localStorage`.
+
+New players start with **Impact Arcade**. Existing saved styles are preserved.
+This style uses an opaque graphite playfield in both color modes, solid enamel
+pieces, and an outline-only ghost. A transparent Canvas layer renders contact
+trails and shards outside the playfield from copies of the locked cells and
+cleared rows. Effects do not consume the bag randomizer or alter scoring,
+collision, or the existing 300ms clear transition. They freeze while paused and
+are discarded on restart or game over. Reduced motion skips these effects.
 
 - All colors — background, panels, text, borders, overlays — are driven by CSS custom properties defined in `style.css` under `[data-theme="dark"]` and `[data-theme="bright"]` blocks.
 - Canvas colors are cached whenever appearance changes, so themed bevels, outlines, and ghost styling do not require repeated computed-style reads for every cell.

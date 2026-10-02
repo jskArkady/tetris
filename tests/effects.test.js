@@ -7,6 +7,7 @@ const {
   createVisualEffectsState,
   getHardDropVisuals,
   getLineClearVisuals,
+  getParticleVisuals,
   triggerAppearanceMorph,
   triggerHardDropImpact,
   triggerLineClearSweep,
@@ -51,6 +52,7 @@ test('hard drop visuals expose scale, shift, and glow for board polish', () => {
 
   assert.ok(visuals.scaleBoost > 0);
   assert.ok(visuals.shiftPx > 0);
+  assert.ok(visuals.shiftPx <= 4);
   assert.ok(visuals.glow > 0);
 });
 
@@ -120,4 +122,46 @@ test('appearance morph can restart from zero elapsed time', () => {
   triggerAppearanceMorph(effects);
 
   assert.equal(effects.appearanceMorph.elapsedMs, 0);
+});
+
+test('clear snapshots and landing cells are detached from live game data', () => {
+  const state = createVisualEffectsState();
+  const cells = [[20, 4], [21, 4]];
+  triggerHardDropImpact(state, 1, 20, cells, 1);
+  cells[0][0] = 0;
+  assert.equal(state.hardDrop.cells[0][0], 20);
+
+  const board = Array.from({ length: 22 }, () => new Array(10).fill(3));
+  const rows = [18, 19, 20, 21];
+  triggerLineClearSweep(state, rows, board, 3);
+  board[21].fill(0);
+  rows[0] = 0;
+  assert.deepEqual(state.lineClear.rows, [18, 19, 20, 21]);
+  assert.deepEqual(state.lineClear.snapshots[3].cells, new Array(10).fill(3));
+  assert.ok(state.lineClear.particles.length <= 32);
+  assert.ok(state.lineClear.strength >= 0.95 && state.lineClear.strength <= 1);
+});
+
+test('shards are deterministic, bounded, and expire without consuming gameplay randomness', () => {
+  const originalRandom = Math.random;
+  Math.random = () => { throw new Error('effects must not consume the bag RNG'); };
+  try {
+    const first = createVisualEffectsState();
+    const second = createVisualEffectsState();
+    triggerLineClearSweep(first, [20, 21]);
+    triggerLineClearSweep(second, [20, 21]);
+    tickVisualEffects(first, 80);
+    tickVisualEffects(first, 80);
+    tickVisualEffects(second, 160);
+    assert.deepEqual(getParticleVisuals(first.lineClear), getParticleVisuals(second.lineClear));
+    for (const particle of getParticleVisuals(first.lineClear)) {
+      assert.ok(Number.isFinite(particle.col) && Number.isFinite(particle.row));
+      assert.ok(particle.alpha > 0 && particle.alpha < 1);
+      assert.ok(particle.size > 0 && particle.size < 0.3);
+    }
+    tickVisualEffects(first, 200);
+    assert.deepEqual(getParticleVisuals(first.lineClear), []);
+  } finally {
+    Math.random = originalRandom;
+  }
 });

@@ -7,7 +7,7 @@
 
   root.TetrisEffects = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
-  const HARD_DROP_EFFECT_MS = 180;
+  const HARD_DROP_EFFECT_MS = 120;
   const LINE_CLEAR_EFFECT_MS = 360;
   const BOARD_PULSE_MS = 240;
   const APPEARANCE_MORPH_MS = 220;
@@ -25,7 +25,7 @@
     };
   }
 
-  function triggerHardDropImpact(state, fromRow, toRow) {
+  function triggerHardDropImpact(state, fromRow, toRow, cells = [], pieceType = 0) {
     const distance = Math.max(0, toRow - fromRow);
     const strength = Math.min(1, 0.35 + distance / 12);
 
@@ -33,9 +33,19 @@
       fromRow,
       toRow,
       strength,
+      cells: cells.map(cell => cell.slice()),
+      pieceType,
+      particles: [],
       elapsedMs: 0,
       durationMs: HARD_DROP_EFFECT_MS,
     };
+
+    if (cells.length > 0) {
+      const landingRow = Math.max(...cells.map(([row]) => row)) + 1;
+      const left = Math.min(...cells.map(([, col]) => col));
+      const right = Math.max(...cells.map(([, col]) => col)) + 1;
+      state.hardDrop.particles = buildParticles(landingRow, left, right, pieceType, 3);
+    }
 
     state.boardPulse = {
       strength: Math.max(0.5, strength * 0.85),
@@ -46,15 +56,41 @@
     return state.hardDrop;
   }
 
-  function triggerLineClearSweep(state, rows) {
+  // Deterministic shards keep visual effects from consuming the game's bag RNG.
+  function buildParticles(row, left, right, pieceType, count, rightPieceType = pieceType) {
+    const particles = [];
+    for (const direction of [-1, 1]) {
+      for (let index = 0; index < count; index++) {
+        particles.push({
+          row,
+          col: direction < 0 ? left : right,
+          vx: direction * (0.006 + index * 0.002),
+          vy: -0.003 - index * 0.0015,
+          size: 0.12 + index * 0.035,
+          pieceType: direction < 0 ? pieceType : rightPieceType,
+        });
+      }
+    }
+    return particles;
+  }
+
+  function triggerLineClearSweep(state, rows, board = [], combo = 0) {
+    const strength = Math.min(1, 0.55 + rows.length * 0.08 + Math.max(0, combo) * 0.03);
+    const snapshots = rows.map(row => ({ row, cells: (board[row] || []).slice() }));
     state.lineClear = {
       rows: rows.slice(),
+      snapshots,
+      strength,
+      // At most 32 shards for the game's four-row clear; only one clear effect is retained.
+      particles: snapshots.slice(0, 4).flatMap(({ row, cells }) => buildParticles(
+        row + 0.5, 0, cells.length || 10, cells[0] || 0, 4, cells[cells.length - 1] || 0
+      )),
       elapsedMs: 0,
       durationMs: LINE_CLEAR_EFFECT_MS,
     };
 
     state.boardPulse = {
-      strength: Math.min(1, 0.55 + rows.length * 0.08),
+      strength,
       elapsedMs: 0,
       durationMs: BOARD_PULSE_MS,
     };
@@ -104,8 +140,8 @@
     const decay = 1 - progress;
 
     return {
-      scaleBoost: Number((0.028 * effect.strength * decay).toFixed(4)),
-      shiftPx: Number((10 * effect.strength * decay).toFixed(2)),
+      scaleBoost: Number((0.006 * effect.strength * decay).toFixed(4)),
+      shiftPx: Number((4 * effect.strength * decay).toFixed(2)),
       glow: Number((0.85 * effect.strength * decay).toFixed(4)),
     };
   }
@@ -124,6 +160,19 @@
       alpha: Number((0.42 + 0.58 * decay).toFixed(4)),
       glow: Number((0.72 * decay).toFixed(4)),
     };
+  }
+
+  function getParticleVisuals(effect) {
+    if (!effect) return [];
+    const time = effect.elapsedMs;
+    const alpha = Math.pow(1 - getProgress(effect), 2);
+    return (effect.particles || []).map(particle => ({
+      col: particle.col + particle.vx * time,
+      row: particle.row + particle.vy * time + 0.000012 * time * time,
+      size: particle.size,
+      pieceType: particle.pieceType,
+      alpha,
+    }));
   }
 
   function buildActionNotification({ actionLabel, b2bBonus, combo, linesCleared }) {
@@ -171,6 +220,7 @@
     createVisualEffectsState,
     getHardDropVisuals,
     getLineClearVisuals,
+    getParticleVisuals,
     triggerHardDropImpact,
     triggerLineClearSweep,
     triggerAppearanceMorph,

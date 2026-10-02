@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark" data-style="fluent">
+<html lang="en" data-theme="dark" data-style="impact">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tetris</title>
+  <title>Impact Arcade — Tetris</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -11,7 +11,7 @@
   <!-- Overlay screens (position:fixed, toggled with .screen--active) -->
   <div id="screen-start" class="screen screen--active" role="dialog" aria-modal="true" aria-labelledby="start-title" aria-hidden="false">
     <div class="screen__content">
-      <p class="menu-kicker">Modern Arcade</p>
+      <p class="menu-kicker">Impact Arcade</p>
       <h1 id="start-title" class="screen__title">TETRIS</h1>
       <p id="menu-appearance-summary" class="menu-summary"></p>
 
@@ -128,14 +128,12 @@
 
     <!-- Center: Main board -->
     <div id="board-wrapper" class="board-wrapper">
-      <canvas id="canvas-board" role="img" aria-label="Tetris game board">
-        Tetris game board. Current game updates are announced separately.
-      </canvas>
-      <div id="action-text" class="action-text" aria-live="polite">
-        <span id="action-text-headline" class="action-text__headline"></span>
-        <span id="action-text-detail" class="action-text__detail"></span>
+      <div class="board-surface">
+        <canvas id="canvas-board" role="img" aria-label="Tetris game board">
+          Tetris game board. Current game updates are announced separately.
+        </canvas>
+        <canvas id="canvas-effects" aria-hidden="true"></canvas>
       </div>
-      <div id="level-up-text" class="level-up-text" aria-live="polite"></div>
     </div>
 
     <section class="mobile-controls" aria-label="Game controls">
@@ -160,6 +158,16 @@
         <canvas id="canvas-next" width="120" height="360" role="img" aria-label="Next three pieces preview">
           Next three pieces preview.
         </canvas>
+      </div>
+      <div class="panel__section panel__section--rewards">
+        <h3 class="panel__label">CHAIN REACTION</h3>
+        <div class="reward-display">
+          <div id="action-text" class="action-text" aria-live="polite">
+            <span id="action-text-headline" class="action-text__headline"></span>
+            <span id="action-text-detail" class="action-text__detail"></span>
+          </div>
+          <div id="level-up-text" class="level-up-text" aria-live="polite"></div>
+        </div>
       </div>
     </aside>
 

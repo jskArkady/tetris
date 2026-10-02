@@ -21,6 +21,10 @@
   };
 
   const STYLE_OPTION_CONFIG = {
+    impact: {
+      label: 'Impact Arcade',
+      summary: 'Solid enamel blocks and sharp impact bursts.',
+    },
     fluent: {
       label: 'Glass',
       summary: 'Glossy layers and cool contrast.',

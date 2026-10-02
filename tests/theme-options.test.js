@@ -18,6 +18,7 @@ test('style option config uses simplified feel-based names', () => {
       Object.entries(STYLE_OPTION_CONFIG).map(([key, value]) => [key, value.label])
     ),
     {
+      impact: 'Impact Arcade',
       fluent: 'Glass',
       material: 'Bloom',
       cupertino: 'Calm',
@@ -33,6 +34,7 @@ test('style option config summaries keep the theme comparison copy', () => {
       Object.entries(STYLE_OPTION_CONFIG).map(([key, value]) => [key, value.summary])
     ),
     {
+      impact: 'Solid enamel blocks and sharp impact bursts.',
       fluent: 'Glossy layers and cool contrast.',
       material: 'Colorful depth with warmer energy.',
       cupertino: 'Soft contrast and quiet spacing.',
@@ -119,7 +121,7 @@ test('runtime wiring keeps theme metadata centralized and renders the grid conta
 test('stylesheet provides bright-mode preview overrides for preset cards', () => {
   const styleCss = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
 
-  for (const style of ['fluent', 'material', 'cupertino', 'shadcn', 'atlassian']) {
+  for (const style of Object.keys(STYLE_OPTION_CONFIG)) {
     assert.match(
       styleCss,
       new RegExp(String.raw`(?::root|body)\[data-theme="bright"\](?:\[data-style="${style}"\])?[^{}]*\.preset-card\[data-style-value="${style}"\][^{]*\{[^}]*--preview-bg-start:[^;]+;`, 'm'),
@@ -156,6 +158,7 @@ test('mode toggles update selection without re-rendering the preset grid', () =>
     'game-container',
     'board-wrapper',
     'canvas-board',
+    'canvas-effects',
     'canvas-hold',
     'canvas-next',
     'hud-score',
@@ -192,6 +195,7 @@ test('mode toggles update selection without re-rendering the preset grid', () =>
     elements.set(id, id === 'preset-grid' ? createPresetGrid() : createElement(id));
   }
   attachCanvasContext(elements.get('canvas-board'));
+  attachCanvasContext(elements.get('canvas-effects'));
   attachCanvasContext(elements.get('canvas-hold'), 120, 120);
   attachCanvasContext(elements.get('canvas-next'), 120, 360);
 
@@ -368,6 +372,7 @@ function createCanvasContext() {
     strokeRect() {},
     save() {},
     restore() {},
+    clearRect() {},
   };
 }
 

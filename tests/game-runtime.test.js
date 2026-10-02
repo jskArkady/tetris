@@ -185,6 +185,115 @@ for (const releaseDuringClear of [false, true]) {
   });
 }
 
+test('Impact Arcade is the first-run default while saved styles are preserved', () => {
+  for (const [seed, expected] of [
+    [{}, 'impact'],
+    [{ 'tetris-style-preset': 'fluent' }, 'fluent'],
+    [{ 'tetris-style-preset': 'invalid' }, 'impact'],
+  ]) {
+    const runtime = createRuntime(seed);
+    runtime.documentListeners.DOMContentLoaded[0]();
+    assert.equal(runtime.context.document.documentElement.dataset.style, expected);
+    assert.equal(runtime.localStorage.getItem('tetris-style-preset'), expected);
+  }
+});
+
+test('effects do not change the rendered board, score, queue, or held-input transitions', () => {
+  function run(effectsEnabled) {
+    const runtime = createRuntime({}, () => 0, { effectsEnabled });
+    const game = runtime.context.TetrisGameRuntime;
+    runtime.documentListeners.DOMContentLoaded[0]();
+    game.start();
+    runtime.advance(0);
+    const trace = [];
+    const capture = () => trace.push({
+      snapshot: JSON.parse(JSON.stringify(game.getSnapshot())),
+      board: Array.from(runtime.elements.get('canvas-board')._context.cells.entries()),
+    });
+    clearBottomRow(runtime);
+    runtime.advance(100);
+    capture();
+    runtime.pressLeft('keyboard');
+    runtime.advance(200);
+    capture();
+    runtime.advance(210);
+    runtime.releaseLeft('keyboard');
+    game.dispatchAction(engine.ACTIONS.HOLD);
+    game.dispatchAction(engine.ACTIONS.HARD_DROP);
+    runtime.advance(40);
+    capture();
+    game.dispatchAction(engine.ACTIONS.PAUSE);
+    runtime.advance(500);
+    game.dispatchAction(engine.ACTIONS.PAUSE);
+    runtime.advance(0);
+    runtime.advance(120);
+    capture();
+    return trace;
+  }
+  assert.deepEqual(run(true), run(false));
+});
+
+test('landing and clear effects capture real cells and survive row collapse independently', () => {
+  const runtime = startRuntime();
+  const game = runtime.context.TetrisGameRuntime;
+  game.dispatchAction(engine.ACTIONS.HARD_DROP);
+  const landing = runtime.getVisualEffects().hardDrop;
+  assert.equal(landing.cells.length, 4);
+  assert.equal(landing.pieceType, 1);
+  assert.ok(landing.cells.every(([row]) => row >= 2 && row < 22));
+
+  game.start();
+  clearBottomRow(runtime);
+  const clear = runtime.getVisualEffects().lineClear;
+  assert.equal(clear.snapshots.length, 1);
+  assert.equal(clear.snapshots[0].row, 21);
+  assert.ok(clear.snapshots[0].cells.every(cell => cell > 0));
+  const snapshot = clear.snapshots[0].cells.slice();
+  runtime.advance(300);
+  assert.equal(game.getSnapshot().clearingRows.length, 0);
+  assert.deepEqual(clear.snapshots[0].cells, snapshot);
+  runtime.advance(60);
+  assert.equal(runtime.getVisualEffects().lineClear, null);
+});
+
+test('pause freezes effects and restarting clears all remaining animation state', () => {
+  const runtime = startRuntime();
+  const game = runtime.context.TetrisGameRuntime;
+  game.dispatchAction(engine.ACTIONS.HARD_DROP);
+  runtime.advance(40);
+  const elapsed = runtime.getVisualEffects().hardDrop.elapsedMs;
+  game.dispatchAction(engine.ACTIONS.PAUSE);
+  runtime.advance(500);
+  assert.equal(runtime.getVisualEffects().hardDrop.elapsedMs, elapsed);
+  game.dispatchAction(engine.ACTIONS.PAUSE);
+  runtime.advance(0);
+  runtime.advance(20);
+  assert.equal(runtime.getVisualEffects().hardDrop.elapsedMs, elapsed + 20);
+  game.start();
+  assert.ok(Object.values(runtime.getVisualEffects()).every(effect => effect === null));
+});
+
+test('reduced motion and game over leave no landing or clear particles behind', () => {
+  const reduced = createRuntime({}, () => 0, { reducedMotion: true });
+  reduced.documentListeners.DOMContentLoaded[0]();
+  reduced.context.TetrisGameRuntime.start();
+  reduced.advance(0);
+  clearBottomRow(reduced);
+  assert.equal(reduced.getVisualEffects().hardDrop, null);
+  assert.equal(reduced.getVisualEffects().lineClear, null);
+  reduced.advance(10);
+  assert.equal(reduced.context.TetrisGameRuntime.getSnapshot().clearingRows.length, 0);
+
+  const runtime = startRuntime();
+  const game = runtime.context.TetrisGameRuntime;
+  for (let drops = 0; drops < 100 && game.getSnapshot().phase === 'playing'; drops++) {
+    game.dispatchAction(engine.ACTIONS.HARD_DROP);
+    runtime.advance(300);
+  }
+  assert.equal(game.getSnapshot().phase, 'gameover');
+  assert.ok(Object.values(runtime.getVisualEffects()).every(effect => effect === null));
+});
+
 function startRuntime() {
   const runtime = createRuntime({}, () => 0);
   runtime.documentListeners.DOMContentLoaded[0]();
@@ -208,11 +317,12 @@ function clearBottomRow(runtime) {
   assert.equal(game.getSnapshot().clearingRows.length, 1);
 }
 
-function createRuntime(seed = {}, random = Math.random) {
+function createRuntime(seed = {}, random = Math.random, options = {}) {
   const elementIds = [
     'game-container',
     'board-wrapper',
     'canvas-board',
+    'canvas-effects',
     'canvas-hold',
     'canvas-next',
     'hud-score',
@@ -246,6 +356,7 @@ function createRuntime(seed = {}, random = Math.random) {
   ];
   const elements = new Map(elementIds.map(id => [id, createElement(id)]));
   attachCanvas(elements.get('canvas-board'), 300, 600);
+  attachCanvas(elements.get('canvas-effects'), 360, 660);
   attachCanvas(elements.get('canvas-hold'), 120, 120);
   attachCanvas(elements.get('canvas-next'), 120, 360);
 
@@ -299,6 +410,20 @@ function createRuntime(seed = {}, random = Math.random) {
   let nextFrame;
   const runtimeMath = Object.create(Math);
   runtimeMath.random = random;
+  let visualState;
+  const runtimeEffects = {
+    ...effects,
+    createVisualEffectsState() {
+      visualState = effects.createVisualEffectsState();
+      return visualState;
+    },
+    triggerHardDropImpact(...args) {
+      if (options.effectsEnabled !== false) return effects.triggerHardDropImpact(...args);
+    },
+    triggerLineClearSweep(...args) {
+      if (options.effectsEnabled !== false) return effects.triggerLineClearSweep(...args);
+    },
+  };
   const context = {
     window: null,
     document,
@@ -313,10 +438,11 @@ function createRuntime(seed = {}, random = Math.random) {
     console,
     TetrisGameEngine: engine,
     TetrisInput: input,
-    TetrisEffects: effects,
+    TetrisEffects: runtimeEffects,
     TetrisThemeOptions: themeOptions,
   };
   context.window = context;
+  context.matchMedia = () => ({ matches: !!options.reducedMotion });
 
   const source = fs.readFileSync(path.join(__dirname, '..', 'game.js'), 'utf8');
   vm.runInNewContext(source, context, { filename: 'game.js' });
@@ -350,6 +476,7 @@ function createRuntime(seed = {}, random = Math.random) {
 
   return {
     context, controls, documentListeners, elements, localStorage, advance,
+    getVisualEffects: () => visualState,
     pressLeft: source => leftEvent(source, true),
     releaseLeft: source => leftEvent(source, false),
   };
@@ -358,11 +485,13 @@ function createRuntime(seed = {}, random = Math.random) {
 function attachCanvas(canvas, width, height) {
   canvas.width = width;
   canvas.height = height;
-  canvas.getContext = () => createCanvasContext();
+  canvas._context = createCanvasContext();
+  canvas.getContext = () => canvas._context;
 }
 
 function createCanvasContext() {
   return {
+    cells: new Map(),
     fillStyle: '',
     strokeStyle: '',
     globalAlpha: 1,
@@ -371,10 +500,16 @@ function createCanvasContext() {
     moveTo() {},
     lineTo() {},
     stroke() {},
-    fillRect() {},
+    fillRect(x, y, width, height) {
+      if (width === 300 && height === 600) this.cells.clear();
+      if (width === 30 && height === 30 && /^#[0-9a-f]{6}$/i.test(this.fillStyle)) {
+        this.cells.set(`${x},${y}`, this.fillStyle);
+      }
+    },
     strokeRect() {},
     save() {},
     restore() {},
+    clearRect() {},
   };
 }
 

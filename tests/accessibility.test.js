@@ -65,7 +65,7 @@ test('reduced-motion and visible keyboard focus styles are provided', () => {
 });
 
 test('bright primary buttons meet normal-text contrast at both gradient ends', () => {
-  for (const style of ['fluent', 'material', 'cupertino', 'shadcn', 'atlassian']) {
+  for (const style of Object.keys(require('../theme-options.js').STYLE_OPTION_CONFIG)) {
     const block = findThemeBlock('bright', style);
     const text = getHexToken(block, '--button-primary-text');
     const start = getHexToken(block, '--button-primary-start');

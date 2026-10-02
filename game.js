@@ -23,6 +23,7 @@
   const VISIBLE_ROWS = 20;
   const HIDDEN_ROWS = ROWS - VISIBLE_ROWS;
   const CELL_SIZE = 30;      // pixels per cell on the main board canvas
+  const EFFECT_MARGIN = CELL_SIZE; // one cell of room for shards outside the board
 
   // Lock delay: piece locks after LOCK_DELAY ms on surface if no move.
   // Each successful move/rotate resets the timer, capped at MAX_LOCK_RESETS
@@ -168,7 +169,7 @@
   const THEME_STORAGE_KEY = 'tetris-theme';
   const STYLE_STORAGE_KEY = 'tetris-style-preset';
   const HIGH_SCORE_STORAGE_KEY = 'tetris_highscore';
-  const DEFAULT_STYLE = 'fluent';
+  const DEFAULT_STYLE = 'impact';
 
   const REPEATING_ACTIONS = new Set([
     ACTIONS.MOVE_LEFT,
@@ -207,6 +208,9 @@
     ghost: 'rgba(255, 255, 255, 0.12)',
     ghostOutline: 'rgba(255, 255, 255, 0.54)',
     textAccent: '#ffffff',
+    impactColor: '#44dff5',
+    rewardColor: '#ffd778',
+    enamel: false,
   };
 
   function cacheDom() {
@@ -214,6 +218,7 @@
       gameContainer:     document.getElementById('game-container'),
       boardWrapper:     document.getElementById('board-wrapper'),
       boardCanvas:      document.getElementById('canvas-board'),
+      effectsCanvas:    document.getElementById('canvas-effects'),
       holdCanvas:       document.getElementById('canvas-hold'),
       nextCanvas:       document.getElementById('canvas-next'),
       hudScore:         document.getElementById('hud-score'),
@@ -248,6 +253,7 @@
       gameControlButtons: document.querySelectorAll('[data-game-action]'),
     };
     dom.boardCtx = dom.boardCanvas.getContext('2d');
+    dom.effectsCtx = dom.effectsCanvas.getContext('2d');
     dom.holdCtx  = dom.holdCanvas.getContext('2d');
     dom.nextCtx  = dom.nextCanvas.getContext('2d');
   }
@@ -316,6 +322,9 @@
       ghost: getCssVar('--ghost-color') || 'rgba(255, 255, 255, 0.12)',
       ghostOutline: getCssVar('--ghost-outline') || 'rgba(255, 255, 255, 0.54)',
       textAccent: getCssVar('--text-accent') || '#ffffff',
+      impactColor: getCssVar('--impact-color') || getCssVar('--text-accent') || '#ffffff',
+      rewardColor: getCssVar('--reward-color') || getCssVar('--text-accent') || '#ffffff',
+      enamel: getActiveStyle() === 'impact',
     };
   }
 
@@ -718,7 +727,9 @@
       VisualEffects.triggerHardDropImpact(
         state.effects,
         state.pendingHardDrop.fromRow,
-        state.pendingHardDrop.toRow
+        state.pendingHardDrop.toRow,
+        cells,
+        type
       );
     }
     state.pendingHardDrop = null;
@@ -729,7 +740,7 @@
       state.clearingRows   = fullRows;
       state.clearAnimTimer = prefersReducedMotion ? 0 : CLEAR_ANIM_DURATION;
       if (!prefersReducedMotion) {
-        VisualEffects.triggerLineClearSweep(state.effects, fullRows);
+        VisualEffects.triggerLineClearSweep(state.effects, fullRows, state.board, state.combo);
       }
       announceGameStatus(`${fullRows.length} line${fullRows.length === 1 ? '' : 's'} cleared.`);
     } else {
@@ -1064,7 +1075,7 @@
   // ═══════════════════════════════════════════════════════════════
 
   function update(dt) {
-    VisualEffects.tickVisualEffects(state.effects, dt);
+    if (state.phase !== 'paused') VisualEffects.tickVisualEffects(state.effects, dt);
 
     if (state.phase !== 'playing') return;
 
@@ -1155,23 +1166,13 @@
     ctx.strokeStyle = canvasTheme.cellOutline;
     ctx.lineWidth = 1;
     ctx.strokeRect(x + 0.5, y + 0.5, s - 1, s - 1);
-  }
 
-  function renderClearSweep(ctx, boardRow, visibleRow) {
-    const effect = state.effects.lineClear;
-    if (!effect || !effect.rows.includes(boardRow)) return;
-
-    const visuals = VisualEffects.getLineClearVisuals(effect);
-    const sweepX = visuals.sweep * (COLS * CELL_SIZE + CELL_SIZE * 2) - CELL_SIZE;
-    const y = visibleRow * CELL_SIZE;
-
-    ctx.save();
-    ctx.globalAlpha = visuals.alpha;
-    ctx.fillStyle = flashColor(state.clearAnimTimer);
-    ctx.fillRect(0, y, COLS * CELL_SIZE, CELL_SIZE);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
-    ctx.fillRect(sweepX, y, CELL_SIZE * 1.2, CELL_SIZE);
-    ctx.restore();
+    if (canvasTheme.enamel) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
+      ctx.fillRect(x + 4, y + 4, s - 8, Math.max(2, s * 0.14));
+      ctx.strokeStyle = canvasTheme.bevelShadow;
+      ctx.strokeRect(x + 1.5, y + 1.5, s - 3, s - 3);
+    }
   }
 
   function renderBoard() {
@@ -1198,32 +1199,13 @@
     // Locked cells (visible rows = board rows 2..21)
     for (let r = 0; r < VISIBLE_ROWS; r++) {
       const boardRow = r + HIDDEN_ROWS;
-      const isClearing = state.clearingRows.includes(boardRow);
       for (let c = 0; c < COLS; c++) {
         const cell = state.board[boardRow][c];
         if (cell !== 0) {
-          const color = isClearing ? flashColor(state.clearAnimTimer) : PIECE_COLORS[cell];
-          drawCell(ctx, c, r, color, CELL_SIZE, 0, 0);
+          drawCell(ctx, c, r, PIECE_COLORS[cell], CELL_SIZE, 0, 0);
         }
       }
-      if (isClearing) renderClearSweep(ctx, boardRow, r);
     }
-  }
-
-  function flashColor(timerMs) {
-    // Use the theme accent so the flash remains legible in either color mode.
-    const base  = canvasTheme.textAccent;
-    // Parse hex to RGB for alpha compositing
-    let r = 255, g = 255, b = 255;
-    const hex = base.replace('#', '');
-    if (hex.length === 6) {
-      r = parseInt(hex.slice(0,2), 16);
-      g = parseInt(hex.slice(2,4), 16);
-      b = parseInt(hex.slice(4,6), 16);
-    }
-    const t     = timerMs / CLEAR_ANIM_DURATION;
-    const alpha = (0.5 + 0.5 * t).toFixed(2);
-    return `rgba(${r},${g},${b},${alpha})`;
   }
 
   function renderGhost() {
@@ -1241,7 +1223,7 @@
       ctx.fillStyle = ghostColor;
       ctx.fillRect(c * CELL_SIZE, visRow * CELL_SIZE, CELL_SIZE, CELL_SIZE);
       ctx.strokeStyle = canvasTheme.ghostOutline;
-      ctx.lineWidth   = 2;
+      ctx.lineWidth   = canvasTheme.enamel ? 1.5 : 2;
       ctx.strokeRect(c * CELL_SIZE + 1, visRow * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
     }
   }
@@ -1256,7 +1238,71 @@
       const visRow = r - HIDDEN_ROWS;
       if (visRow < 0 || visRow >= VISIBLE_ROWS) continue;
       drawCell(ctx, c, visRow, PIECE_COLORS[type], CELL_SIZE, 0, 0);
+      if (canvasTheme.enamel) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.fillRect(c * CELL_SIZE + 3, visRow * CELL_SIZE + 2, CELL_SIZE - 6, 2);
+      }
     }
+  }
+
+  function renderEffectParticles(ctx, effect) {
+    for (const particle of VisualEffects.getParticleVisuals(effect)) {
+      const x = EFFECT_MARGIN + particle.col * CELL_SIZE;
+      const y = EFFECT_MARGIN + (particle.row - HIDDEN_ROWS) * CELL_SIZE;
+      const size = particle.size * CELL_SIZE;
+      ctx.globalAlpha = particle.alpha;
+      ctx.fillStyle = PIECE_COLORS[particle.pieceType] || canvasTheme.impactColor;
+      ctx.fillRect(x - size / 2, y - size / 2, size, size);
+      ctx.fillStyle = canvasTheme.bevelLight;
+      ctx.fillRect(x - size / 2, y - size / 2, size, 1);
+    }
+  }
+
+  function renderEffects() {
+    const ctx = dom.effectsCtx;
+    ctx.clearRect(0, 0, dom.effectsCanvas.width, dom.effectsCanvas.height);
+    if (prefersReducedMotion) return;
+    ctx.save();
+
+    const drop = state.effects.hardDrop;
+    if (drop) {
+      const decay = 1 - drop.elapsedMs / drop.durationMs;
+      ctx.fillStyle = PIECE_COLORS[drop.pieceType] || canvasTheme.impactColor;
+      const distance = drop.toRow - drop.fromRow;
+      const columns = new Map();
+      for (const [row, col] of drop.cells) {
+        columns.set(col, Math.max(columns.get(col) ?? -Infinity, row));
+      }
+      for (const [col, row] of columns) {
+        const x = EFFECT_MARGIN + col * CELL_SIZE;
+        const endY = (row + 1 - HIDDEN_ROWS) * CELL_SIZE;
+        const startY = Math.max(0, (row - distance - HIDDEN_ROWS) * CELL_SIZE);
+        ctx.globalAlpha = decay * 0.12;
+        ctx.fillRect(x + CELL_SIZE * 0.35, EFFECT_MARGIN + startY,
+          CELL_SIZE * 0.3, Math.max(0, endY - startY));
+        ctx.globalAlpha = decay * 0.9;
+        ctx.fillRect(x + 1, EFFECT_MARGIN + endY - 2, CELL_SIZE - 2, 3);
+      }
+      renderEffectParticles(ctx, drop);
+    }
+
+    const clear = state.effects.lineClear;
+    if (clear) {
+      const progress = clear.elapsedMs / clear.durationMs;
+      const decay = Math.pow(1 - progress, 2);
+      ctx.fillStyle = clear.rows.length === 4 ? canvasTheme.rewardColor : canvasTheme.impactColor;
+      for (const { row, cells } of clear.snapshots) {
+        const y = EFFECT_MARGIN + (row - HIDDEN_ROWS) * CELL_SIZE;
+        ctx.globalAlpha = decay * 0.16;
+        // Use the pre-collapse width; never sample a newly spawned piece or board.
+        ctx.fillRect(EFFECT_MARGIN, y, cells.length * CELL_SIZE, CELL_SIZE);
+        ctx.globalAlpha = decay * clear.strength;
+        ctx.fillRect(EFFECT_MARGIN - 8 * progress, y + CELL_SIZE / 2 - 1,
+          cells.length * CELL_SIZE + 16 * progress, 2);
+      }
+      renderEffectParticles(ctx, clear);
+    }
+    ctx.restore();
   }
 
   function renderPieceInPanel(ctx, type, panelWidth, panelHeight, panelTop = 0) {
@@ -1324,7 +1370,8 @@
     const hardDropVisuals = VisualEffects.getHardDropVisuals(state.effects.hardDrop);
     const clearVisuals = VisualEffects.getLineClearVisuals(state.effects.lineClear);
     const pulseStrength = state.effects.boardPulse
-      ? 1 - (state.effects.boardPulse.elapsedMs / state.effects.boardPulse.durationMs)
+      ? state.effects.boardPulse.strength
+        * (1 - state.effects.boardPulse.elapsedMs / state.effects.boardPulse.durationMs)
       : 0;
 
     dom.boardWrapper.style.setProperty('--impact-scale', hardDropVisuals.scaleBoost.toFixed(4));
@@ -1350,10 +1397,11 @@
     }
     renderHold();
     renderNext();
+    renderEffects();
   }
 
   function hasActiveVisualEffects() {
-    if (!state.effects) return false;
+    if (!state.effects || state.phase === 'paused') return false;
     return Object.values(state.effects).some(Boolean);
   }
 
@@ -1419,6 +1467,8 @@
 
   function triggerGameOver() {
     state.phase = 'gameover';
+    state.pendingHardDrop = null;
+    state.effects = VisualEffects.createVisualEffectsState();
     updateHighScore();
     dom.finalScore.textContent       = state.score.toLocaleString();
     dom.highScoreDisplay.textContent = state.highScore.toLocaleString();
@@ -1457,6 +1507,8 @@
     const boardH = VISIBLE_ROWS * CELL_SIZE;
     dom.boardCanvas.width  = boardW;
     dom.boardCanvas.height = boardH;
+    dom.effectsCanvas.width = boardW + EFFECT_MARGIN * 2;
+    dom.effectsCanvas.height = boardH + EFFECT_MARGIN * 2;
     // Keep the drawing buffer fixed; CSS controls responsive display size.
     // Hold (120x120) and next (120x360) sizes are set in HTML attributes.
   }
