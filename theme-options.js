@@ -17,7 +17,7 @@
     modeTitle: 'Mode',
     modeCopy: 'Switch brightness without leaving the same theme grid.',
     themesTitle: 'Themes',
-    themesCopy: 'Compare the same game snapshot across all themes.',
+    themesCopy: 'One arcade layout. Six color palettes.',
   };
 
   const STYLE_OPTION_CONFIG = {
@@ -27,23 +27,23 @@
     },
     fluent: {
       label: 'Glass',
-      summary: 'Glossy layers and cool contrast.',
+      summary: 'Icy cyan and blue accents.',
     },
     material: {
       label: 'Bloom',
-      summary: 'Colorful depth with warmer energy.',
+      summary: 'Violet and rose accents.',
     },
     cupertino: {
       label: 'Calm',
-      summary: 'Soft contrast and quiet spacing.',
+      summary: 'Soft silver and pastel colors.',
     },
     shadcn: {
       label: 'Mono',
-      summary: 'Neutral contrast and crisp structure.',
+      summary: 'Neutral graphite and silver.',
     },
     atlassian: {
       label: 'Focus',
-      summary: 'Clear blue accents and product-like density.',
+      summary: 'Crisp blue accents.',
     },
   };
 

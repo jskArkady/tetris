@@ -75,6 +75,13 @@ Choose one of six visual styles and a **Dark** or **Bright** color mode from the
 options screen. Both selections are persisted in `localStorage`.
 
 New players start with **Impact Arcade**. Existing saved styles are preserved.
+All six themes share its angular Oxanium display type, narrow Rajdhani labels,
+thin frames, menu layout, and enamel block details. Glass, Bloom, Calm, Mono,
+and Focus retain their existing dark/bright background, text, button, board,
+piece, and preview palettes. Their logo and rewards use accents from those
+palettes; Impact Arcade keeps its cyan and gold accents. The Latin font subsets are bundled in
+`assets/fonts/fonts.css` with SIL Open Font License notices alongside them;
+the game does not request fonts from an external service at runtime.
 This style uses an opaque graphite playfield in both color modes, solid enamel
 pieces, and an outline-only ghost. A transparent Canvas layer renders contact
 trails and shards outside the playfield from copies of the locked cells and

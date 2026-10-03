@@ -210,7 +210,6 @@
     textAccent: '#ffffff',
     impactColor: '#44dff5',
     rewardColor: '#ffd778',
-    enamel: false,
   };
 
   function cacheDom() {
@@ -324,7 +323,6 @@
       textAccent: getCssVar('--text-accent') || '#ffffff',
       impactColor: getCssVar('--impact-color') || getCssVar('--text-accent') || '#ffffff',
       rewardColor: getCssVar('--reward-color') || getCssVar('--text-accent') || '#ffffff',
-      enamel: getActiveStyle() === 'impact',
     };
   }
 
@@ -1167,12 +1165,10 @@
     ctx.lineWidth = 1;
     ctx.strokeRect(x + 0.5, y + 0.5, s - 1, s - 1);
 
-    if (canvasTheme.enamel) {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
-      ctx.fillRect(x + 4, y + 4, s - 8, Math.max(2, s * 0.14));
-      ctx.strokeStyle = canvasTheme.bevelShadow;
-      ctx.strokeRect(x + 1.5, y + 1.5, s - 3, s - 3);
-    }
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
+    ctx.fillRect(x + 4, y + 4, s - 8, Math.max(2, s * 0.14));
+    ctx.strokeStyle = canvasTheme.bevelShadow;
+    ctx.strokeRect(x + 1.5, y + 1.5, s - 3, s - 3);
   }
 
   function renderBoard() {
@@ -1223,7 +1219,7 @@
       ctx.fillStyle = ghostColor;
       ctx.fillRect(c * CELL_SIZE, visRow * CELL_SIZE, CELL_SIZE, CELL_SIZE);
       ctx.strokeStyle = canvasTheme.ghostOutline;
-      ctx.lineWidth   = canvasTheme.enamel ? 1.5 : 2;
+      ctx.lineWidth   = 1.5;
       ctx.strokeRect(c * CELL_SIZE + 1, visRow * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
     }
   }
@@ -1238,10 +1234,8 @@
       const visRow = r - HIDDEN_ROWS;
       if (visRow < 0 || visRow >= VISIBLE_ROWS) continue;
       drawCell(ctx, c, visRow, PIECE_COLORS[type], CELL_SIZE, 0, 0);
-      if (canvasTheme.enamel) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-        ctx.fillRect(c * CELL_SIZE + 3, visRow * CELL_SIZE + 2, CELL_SIZE - 6, 2);
-      }
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.fillRect(c * CELL_SIZE + 3, visRow * CELL_SIZE + 2, CELL_SIZE - 6, 2);
     }
   }
 

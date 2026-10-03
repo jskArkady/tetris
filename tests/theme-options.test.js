@@ -35,11 +35,11 @@ test('style option config summaries keep the theme comparison copy', () => {
     ),
     {
       impact: 'Solid enamel blocks and sharp impact bursts.',
-      fluent: 'Glossy layers and cool contrast.',
-      material: 'Colorful depth with warmer energy.',
-      cupertino: 'Soft contrast and quiet spacing.',
-      shadcn: 'Neutral contrast and crisp structure.',
-      atlassian: 'Clear blue accents and product-like density.',
+      fluent: 'Icy cyan and blue accents.',
+      material: 'Violet and rose accents.',
+      cupertino: 'Soft silver and pastel colors.',
+      shadcn: 'Neutral graphite and silver.',
+      atlassian: 'Crisp blue accents.',
     }
   );
 });
@@ -50,7 +50,7 @@ test('options panel copy is centralized for the options screen', () => {
     modeTitle: 'Mode',
     modeCopy: 'Switch brightness without leaving the same theme grid.',
     themesTitle: 'Themes',
-    themesCopy: 'Compare the same game snapshot across all themes.',
+    themesCopy: 'One arcade layout. Six color palettes.',
   });
 });
 

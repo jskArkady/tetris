@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Impact Arcade — Tetris</title>
+  <link rel="stylesheet" href="assets/fonts/fonts.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -12,7 +13,10 @@
   <div id="screen-start" class="screen screen--active" role="dialog" aria-modal="true" aria-labelledby="start-title" aria-hidden="false">
     <div class="screen__content">
       <p class="menu-kicker">Impact Arcade</p>
-      <h1 id="start-title" class="screen__title">TETRIS</h1>
+      <h1 id="start-title" class="screen__title">
+        <span class="default-wordmark">TETRIS</span>
+        <span class="arcade-wordmark"><span>IMPACT</span><span>ARCADE</span></span>
+      </h1>
       <p id="menu-appearance-summary" class="menu-summary"></p>
 
       <div class="screen__actions screen__actions--stack">
@@ -100,6 +104,10 @@
 
     <!-- Left panel: Hold + Stats -->
     <aside class="panel panel--left">
+      <header class="arcade-brand" aria-label="Impact Arcade">
+        <p class="arcade-wordmark" aria-hidden="true"><span>IMPACT</span><span>ARCADE</span></p>
+        <p class="arcade-brand__caption">FALLING BLOCKS.<br />BIGGER FEELINGS.</p>
+      </header>
       <div class="panel__section">
         <h3 class="panel__label">HOLD</h3>
         <canvas id="canvas-hold" width="120" height="120" role="img" aria-label="Held piece preview">
